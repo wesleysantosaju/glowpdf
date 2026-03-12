@@ -1,6 +1,6 @@
 <?php
 /**
- * GLOW PDF SYSTEM - VERSÃO COMERCIAL v10.0 (SaaS Profissional - Responsivo)
+ * GLOW PDF SYSTEM - VERSÃO COMERCIAL v10.0 (SaaS Profissional - Responsivo Final)
  */
 session_start();
 ob_start();
@@ -87,94 +87,166 @@ if (isset($_POST["gerar_pdf"])) {
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Glow PDF | Sistema Profissional</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>.bg-custom { background: #020617; } .card-custom { background: #0f172a; border: 1px solid #1e293b; }</style>
+    <style>
+        .bg-custom { background: #020617; }
+        .card-custom { background: #0f172a; border: 1px solid #1e293b; }
+        /* Garantir que inputs não quebrem no mobile */
+        input, select, textarea { font-size: 16px !important; }
+    </style>
 </head>
 <body class="bg-custom text-slate-300 min-h-screen font-sans">
 
-    <nav class="p-4 md:p-6 border-b border-slate-800 flex justify-between items-center max-w-7xl mx-auto">
-        <h1 class="text-xl md:text-2xl font-black text-white italic tracking-tighter">GLOW<span class="text-indigo-500">PDF</span></h1>
-        <?php if (isset($_SESSION["user"])): ?>
-            <div class="flex items-center gap-2 md:gap-4">
-                <span class="text-[10px] md:text-xs font-bold text-indigo-400 uppercase hidden sm:inline">PLANO: <?= $is_pro ? "VIP 💎" : "FREE" ?></span>
-                <a href="?logout=1" class="bg-red-500/10 text-red-500 px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-[10px] md:text-xs font-bold">SAIR</a>
+    <nav class="bg-[#020617]/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <h1 class="text-xl md:text-2xl font-black text-white italic tracking-tighter">GLOW<span class="text-indigo-500">PDF</span></h1>
+                
+                <div class="hidden md:flex items-center gap-4">
+                    <?php if (isset($_SESSION["user"])): ?>
+                        <span class="text-xs font-bold text-indigo-400">PLANO: <?= $is_pro ? "VIP 💎" : "FREE" ?></span>
+                        <a href="?logout=1" class="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg text-xs font-bold">SAIR</a>
+                    <?php else: ?>
+                        <button onclick="toggleModal('modal-login')" class="text-xs font-bold text-indigo-400 px-4 py-2 uppercase">Entrar</button>
+                        <button onclick="toggleModal('modal-reg')" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-indigo-500/20 uppercase">Assinar Pro</button>
+                    <?php endif; ?>
+                </div>
+
+                <div class="md:hidden">
+                    <button onclick="toggleMobileMenu()" class="text-white focus:outline-none">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                        </svg>
+                    </button>
+                </div>
             </div>
-        <?php else: ?>
-            <div class="flex gap-1 md:gap-2">
-                <button onclick="document.getElementById('modal-login').classList.remove('hidden')" class="text-[10px] md:text-xs font-bold text-indigo-400 px-3 py-2">ENTRAR</button>
-                <button onclick="document.getElementById('modal-reg').classList.remove('hidden')" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-[10px] md:text-xs font-bold">ASSINAR PRO</button>
-            </div>
-        <?php endif; ?>
+        </div>
+
+        <div id="mobile-menu" class="hidden md:hidden bg-slate-900 border-b border-slate-800 p-4 space-y-3">
+            <?php if (isset($_SESSION["user"])): ?>
+                <div class="text-xs font-bold text-indigo-400 py-2 border-b border-slate-800">PLANO: <?= $is_pro ? "VIP 💎" : "FREE" ?></div>
+                <a href="?logout=1" class="block text-red-500 text-sm font-bold">SAIR DA CONTA</a>
+            <?php else: ?>
+                <button onclick="toggleModal('modal-login')" class="block w-full text-left text-indigo-400 font-bold text-sm">ENTRAR</button>
+                <button onclick="toggleModal('modal-reg')" class="block w-full text-left text-white bg-indigo-600 p-2 rounded-lg font-bold text-sm">ASSINAR PRO</button>
+            <?php endif; ?>
+        </div>
     </nav>
 
     <main class="max-w-6xl mx-auto py-6 md:py-10 px-4 md:px-6">
+        
         <?php if (!$is_pro): ?>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12">
-            <div class="card-custom p-6 md:p-8 rounded-2xl md:rounded-3xl border-slate-700 opacity-80">
-                <h3 class="text-lg md:text-xl font-bold text-white uppercase">Grátis</h3>
-                <p class="text-3xl md:text-4xl font-black my-3 md:my-4 text-white uppercase">R$ 0</p>
-                <ul class="text-[11px] md:text-xs space-y-2 mb-6 text-slate-400"><li>✅ Acesso aos modelos</li><li>❌ Marca d'água</li></ul>
-                <button onclick="document.getElementById('modal-reg').classList.remove('hidden')" class="w-full border border-slate-700 py-3 rounded-xl font-bold text-xs md:text-sm">USAR AGORA</button>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
+            <div class="card-custom p-6 md:p-8 rounded-2xl border-slate-700">
+                <h3 class="text-lg font-bold text-white uppercase">Grátis</h3>
+                <p class="text-3xl font-black my-2">R$ 0</p>
+                <ul class="text-xs space-y-1 mb-6 text-slate-400"><li>✅ Modelos Profissionais</li><li>❌ Marca d'água</li></ul>
+                <button onclick="toggleModal('modal-reg')" class="w-full border border-slate-700 py-3 rounded-xl font-bold text-xs uppercase">Começar</button>
             </div>
-            <div class="card-custom p-6 md:p-8 rounded-2xl md:rounded-3xl border-indigo-500/50 relative overflow-hidden ring-2 ring-indigo-500 shadow-2xl">
-                <div class="absolute top-0 right-0 bg-indigo-500 text-white text-[9px] px-3 py-1 font-bold uppercase">Melhor Escolha</div>
-                <h3 class="text-lg md:text-xl font-bold text-white italic italic">Assinatura VIP</h3>
-                <p class="text-3xl md:text-4xl font-black my-3 md:my-4 text-white uppercase">R$ 29,90 <span class="text-xs font-normal">/mês</span></p>
-                <ul class="text-[11px] md:text-xs space-y-2 mb-6 text-slate-300"><li>✅ PDF Profissional</li><li>✅ Sua Logomarca</li></ul>
-                <button onclick="document.getElementById('modal-reg').classList.remove('hidden')" class="w-full bg-indigo-600 py-3 rounded-xl font-bold text-white text-xs md:text-sm uppercase tracking-widest hover:bg-indigo-500 transition">LIBERAR AGORA</button>
+            <div class="card-custom p-6 md:p-8 rounded-2xl border-indigo-500 relative overflow-hidden ring-1 ring-indigo-500">
+                <div class="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] px-3 py-1 font-bold">VIP</div>
+                <h3 class="text-lg font-bold text-white italic">Assinatura VIP</h3>
+                <p class="text-3xl font-black my-2">R$ 29,90</p>
+                <ul class="text-xs space-y-1 mb-6 text-slate-300"><li>✅ Sem Marcas d'água</li><li>✅ Sua Logomarca</li></ul>
+                <button onclick="toggleModal('modal-reg')" class="w-full bg-indigo-600 py-3 rounded-xl font-bold text-xs uppercase shadow-lg shadow-indigo-900/40">Liberar Agora</button>
             </div>
         </div>
         <?php endif; ?>
 
         <?php if (isset($_SESSION["user"]) && !$is_pro && $_SESSION["user"]["status"] === "aguardando"): ?>
-            <div class="mb-8 md:mb-10 p-6 md:p-8 card-custom rounded-2xl md:rounded-[2.5rem] border-amber-500/30 text-center max-w-2xl mx-auto shadow-2xl">
-                 <h2 class="text-lg md:text-xl font-bold text-white mb-6 uppercase tracking-tighter italic">Aguardando Ativação VIP 💎</h2>
-                 <?php $valor_saas = 29.9; $pix_final = montarPixDinamico($valor_saas); ?>
-                 <div class="bg-white p-3 md:p-4 rounded-2xl md:rounded-3xl inline-block mb-6">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?= urlencode($pix_final) ?>" class="w-32 h-32 md:w-40 md:h-40 mx-auto">
+            <div class="mb-10 p-6 md:p-10 card-custom rounded-3xl border-amber-500/30 text-center max-w-xl mx-auto shadow-2xl">
+                 <h2 class="text-xl font-bold text-white mb-6 italic tracking-tighter">Ative seu VIP 💎</h2>
+                 <?php $valor_saas = 29.90; $pix_final = montarPixDinamico($valor_saas); ?>
+                 <div class="bg-white p-3 rounded-2xl inline-block mb-6 shadow-xl">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=<?= urlencode($pix_final) ?>" class="w-32 h-32 md:w-40 md:h-40 mx-auto">
                  </div>
-                 <div class="text-left bg-black/40 p-4 md:p-5 rounded-xl md:rounded-2xl mb-6">
-                    <p class="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase mb-2">Pix Copia e Cola:</p>
-                    <textarea readonly class="w-full bg-transparent border-none text-[9px] md:text-[10px] text-indigo-400 font-mono resize-none h-16 md:h-12 outline-none" onclick="this.select(); document.execCommand('copy'); alert('Copiado!')"><?= $pix_final ?></textarea>
+                 <div class="text-left bg-black/40 p-4 rounded-xl mb-6">
+                    <p class="text-[9px] text-slate-500 font-bold uppercase mb-2">Copia e Cola:</p>
+                    <textarea readonly class="w-full bg-transparent border-none text-[10px] text-indigo-400 font-mono resize-none h-16 outline-none" onclick="this.select(); document.execCommand('copy'); alert('Código Copiado!')"><?= $pix_final ?></textarea>
                  </div>
-                 <a href="https://wa.me/5579991489856?text=Olá! Fiz o pagamento de R$ 29,90 no Glow PDF (Email: <?= $_SESSION["user"]["email"] ?>). Segue o comprovante." target="_blank" class="w-full inline-block bg-emerald-600 text-white text-[10px] md:text-xs font-black px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl uppercase tracking-widest shadow-lg shadow-emerald-900/20 text-center">ENVIAR COMPROVANTE</a>
+                 <a href="https://wa.me/5579991489856?text=Fiz o pagamento de R$ 29,90 no Glow PDF (Email: <?= $_SESSION["user"]["email"] ?>)" target="_blank" class="w-full inline-flex items-center justify-center bg-emerald-600 text-white text-xs font-black py-4 rounded-2xl uppercase tracking-widest shadow-lg shadow-emerald-900/20">ENVIAR COMPROVANTE</a>
             </div>
         <?php endif; ?>
 
-        <div class="lg:col-span-12 card-custom p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-2xl">
-            <form method="POST" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                <div class="md:col-span-1"><label class="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Modelo</label><select name="tipo_documento" id="tipo_doc" onchange="alterarTextoBase()" class="w-full mt-2 p-3 md:p-4 rounded-xl md:rounded-2xl bg-slate-950 border border-slate-800 outline-none focus:border-indigo-500 text-sm md:text-base"><option value="ORÇAMENTO TÉCNICO">Orçamento Técnico</option><option value="RECIBO DE PAGAMENTO">Recibo de Pagamento</option><option value="CONTRATO DE SERVIÇO">Contrato de Prestação</option><option value="DECLARAÇÃO">Declaração Profissional</option></select></div>
-                <div><label class="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sua Empresa / CPF</label><input type="text" name="empresa" id="emp_f" required class="w-full mt-2 p-3 md:p-4 rounded-xl md:rounded-2xl bg-slate-950 border border-slate-800 outline-none text-sm md:text-base"></div>
-                <div><label class="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor R$</label><input type="text" name="valor" id="val_f" required class="w-full mt-2 p-3 md:p-4 rounded-xl md:rounded-2xl bg-slate-950 border border-slate-800 text-indigo-400 font-bold text-sm md:text-base"></div>
-                <div class="md:col-span-2"><label class="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nome do Cliente</label><input type="text" name="cliente" id="cli_f" required class="w-full mt-2 p-3 md:p-4 rounded-xl md:rounded-2xl bg-slate-950 border border-slate-800 text-sm md:text-base"></div>
-                <div class="md:col-span-1"><label class="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest text-indigo-400">Logomarca (VIP)</label><?php if ($is_pro): ?><input type="file" name="logo_file" class="w-full mt-2 p-2 text-[10px] bg-slate-950 rounded-xl border border-dashed border-indigo-500/50"><?php else: ?><div class="w-full mt-2 p-3 md:p-4 text-[10px] bg-slate-800/30 rounded-xl text-slate-500 italic">Disponível no VIP</div><?php endif; ?></div>
-                <div class="md:col-span-3"><label class="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Conteúdo do Documento</label><textarea name="descricao" id="texto_doc" rows="10" class="w-full mt-2 p-4 md:p-5 rounded-xl md:rounded-2xl bg-slate-950 border border-slate-800 outline-none text-xs md:text-sm"></textarea></div>
-                <button type="submit" name="gerar_pdf" class="md:col-span-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 md:py-5 rounded-xl md:rounded-2xl uppercase tracking-widest transition text-xs md:text-base">🚀 GERAR PDF PROFISSIONAL</button>
+        <div class="card-custom p-6 md:p-10 rounded-3xl shadow-2xl">
+            <form method="POST" enctype="multipart/form-data" class="flex flex-col gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Tipo de Documento</label>
+                        <select name="tipo_documento" id="tipo_doc" onchange="alterarTextoBase()" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 outline-none focus:border-indigo-500 text-sm">
+                            <option value="ORÇAMENTO TÉCNICO">Orçamento Técnico</option>
+                            <option value="RECIBO DE PAGAMENTO">Recibo de Pagamento</option>
+                            <option value="CONTRATO DE SERVIÇO">Contrato de Prestação</option>
+                            <option value="DECLARAÇÃO">Declaração Profissional</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Sua Empresa / CPF</label>
+                        <input type="text" name="empresa" id="emp_f" required placeholder="Seu Nome ou Marca" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 outline-none text-sm focus:border-indigo-500">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Valor Total R$</label>
+                        <input type="text" name="valor" id="val_f" required placeholder="0,00" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-indigo-400 font-bold text-sm focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                    <div class="md:col-span-2 flex flex-col">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Nome do Cliente / Tomador</label>
+                        <input type="text" name="cliente" id="cli_f" required placeholder="Nome Completo do Cliente" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 outline-none text-sm focus:border-indigo-500">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Sua Logo (VIP 💎)</label>
+                        <?php if ($is_pro): ?>
+                            <input type="file" name="logo_file" class="w-full p-3 text-[10px] bg-slate-950 rounded-2xl border border-dashed border-indigo-500/50">
+                        <?php else: ?>
+                            <div class="w-full p-4 text-[10px] bg-slate-800/20 rounded-2xl text-slate-500 italic text-center border border-slate-800">Liberado apenas no VIP</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Corpo do Documento</label>
+                    <textarea name="descricao" id="texto_doc" rows="10" class="w-full p-5 rounded-3xl bg-slate-950 border border-slate-800 outline-none text-sm leading-relaxed focus:border-indigo-500"></textarea>
+                    <p class="text-[9px] text-slate-600 mt-2 italic">* Use {{cliente}} e {{valor}} no texto se desejar automação.</p>
+                </div>
+
+                <button type="submit" name="gerar_pdf" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl uppercase tracking-widest transition shadow-xl shadow-indigo-900/40 text-sm md:text-base">
+                    🚀 GERAR DOCUMENTO PROFISSIONAL
+                </button>
             </form>
         </div>
     </main>
 
-    <div id="modal-login" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center p-4 z-50">
-        <div class="card-custom p-6 md:p-8 rounded-2xl md:rounded-3xl w-full max-w-md"><h2 class="text-lg md:text-xl font-bold text-white mb-6 uppercase tracking-tighter text-center">Login</h2><form method="POST" class="space-y-4"><input type="email" name="email" placeholder="E-mail" required class="w-full p-3 md:p-4 rounded-xl border border-slate-800 outline-none bg-slate-950"><input type="password" name="senha" placeholder="Senha" required class="w-full p-3 md:p-4 rounded-xl border border-slate-800 outline-none bg-slate-950"><button type="submit" name="login" class="w-full bg-indigo-600 py-3 md:py-4 rounded-xl font-bold uppercase tracking-widest text-xs md:text-sm">Entrar</button><button type="button" onclick="document.getElementById('modal-login').classList.add('hidden')" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2">Cancelar</button></form></div>
-    </div>
-    <div id="modal-reg" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center p-4 z-50">
-        <div class="card-custom p-6 md:p-8 rounded-2xl md:rounded-3xl w-full max-w-md border-indigo-500/20"><h2 class="text-lg md:text-xl font-bold text-white mb-6 uppercase tracking-tighter italic text-center">Seja VIP 💎</h2><form method="POST" class="space-y-4"><input type="text" name="nome" placeholder="Nome Completo" required class="w-full p-3 md:p-4 rounded-xl border border-slate-800 outline-none bg-slate-950"><input type="email" name="email" placeholder="Seu E-mail" required class="w-full p-3 md:p-4 rounded-xl border border-slate-800 outline-none bg-slate-950"><input type="password" name="senha" placeholder="Senha" required class="w-full p-3 md:p-4 rounded-xl border border-slate-800 outline-none bg-slate-950"><button type="submit" name="registrar" class="w-full bg-emerald-600 py-3 md:py-4 rounded-xl font-bold uppercase text-[10px] md:text-xs tracking-widest shadow-lg shadow-emerald-900/20">Criar Conta e Ativar</button><button type="button" onclick="document.getElementById('modal-reg').classList.add('hidden')" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2">Voltar</button></form></div>
-    </div>
-
     <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        // MÁSCARA DINHEIRO
         document.getElementById('val_f').addEventListener('input', function (e) {
             let v = e.target.value.replace(/\D/g, "");
             v = (v / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             e.target.value = v;
         });
+
+        // TEMPLATES
         const t = {
-            "ORÇAMENTO TÉCNICO": "PROPOSTA COMERCIAL DE PRESTAÇÃO DE SERVIÇOS\n\nEMITENTE: {{empresa}}\nCLIENTE: {{cliente}}\nDATA DE EMISSÃO: {{data}}\n\n1. OBJETO TÉCNICO\nO presente orçamento visa a execução de serviços especializados de [Descreva o Serviço], contemplando o fornecimento de mão de obra qualificada e materiais necessários para a plena satisfação do projeto.\n\n2. INVESTIMENTO E CONDIÇÕES\nPelos serviços acima descritos, o valor total do investimento será de R$ {{valor}}, a ser quitado conforme negociação prévia.\n\n3. VALIDADE E ACEITE\nEsta proposta comercial tem validade de 10 dias corridos. O início da execução está condicionado à aprovação formal deste documento e disponibilidade de cronograma.",
-            "RECIBO DE PAGAMENTO": "RECIBO DE QUITAÇÃO INTEGRAL\n\nVALOR: R$ {{valor}}\n\nEu, representante de {{empresa}}, declaro para os devidos fins de direito que recebi de {{cliente}} a importância de R$ {{valor}}, referente ao pagamento integral e irrevogável por serviços prestados no período de [Descreva o Período].\n\nPor meio deste documento, dou plena e geral quitação, não havendo nada mais a reclamar a qualquer título sobre o objeto deste pagamento.\n\nDocumento emitido em {{data}}.",
-            "CONTRATO DE SERVIÇO": "INSTRUMENTO PARTICULAR DE CONTRATO DE PRESTAÇÃO DE SERVIÇOS\n\nCONTRATADA: {{empresa}}\nCONTRATANTE: {{cliente}}\n\nAs partes acima identificadas celebram o presente contrato mediante as seguintes cláusulas:\n\nCLÁUSULA 1ª - OBJETO: A CONTRATADA compromete-se a executar serviços de [Descreva o Serviço] com pontualidade e rigor técnico.\n\nCLÁUSULA 2ª - HONORÁRIOS: Pelos serviços realizados, a CONTRATANTE pagará o montante de R$ {{valor}}, conforme cronograma acordado.\n\nCLÁUSULA 3ª - VIGÊNCIA: O contrato entra em vigor em {{data}}, com encerramento previsto após a conclusão e entrega final das etapas.\n\nCLÁUSULA 4ª - FORO: Fica eleito o foro da comarca da sede da CONTRATADA para dirimir quaisquer dúvidas oriundas deste instrumento.",
-            "DECLARAÇÃO": "DECLARAÇÃO DE PRESTAÇÃO DE SERVIÇOS E PAGAMENTO\n\nDeclaramos para os devidos fins, sob as penas da lei, que o Sr(a) ou Empresa {{cliente}} realizou o pagamento total no valor de R$ {{valor}} em favor de {{empresa}}, referente à execução de serviços técnicos concluídos conforme o acordado entre as partes.\n\nPor ser expressão da verdade, firmo a presente em {{data}}."
+            "ORÇAMENTO TÉCNICO": "PROPOSTA COMERCIAL\n\nEMITENTE: {{empresa}}\nCLIENTE: {{cliente}}\nDATA: {{data}}\n\n1. OBJETO: Este orçamento visa detalhar a prestação de serviços técnicos de [Descreva o serviço].\n\n2. INVESTIMENTO: O valor total para execução é de R$ {{valor}}.\n\n3. VALIDADE: Esta proposta tem validade de 10 dias corridos.",
+            "RECIBO DE PAGAMENTO": "RECIBO DE QUITAÇÃO INTEGRAL\n\nVALOR: R$ {{valor}}\n\nEu, representante de {{empresa}}, declaro ter recebido de {{cliente}} a importância supra de R$ {{valor}}, referente ao pagamento total por serviços prestados no período de [Período].\n\nPor ser verdade, firmo o presente recibo dando plena quitação.\n\nEmitido em {{data}}.",
+            "CONTRATO DE SERVIÇO": "INSTRUMENTO PARTICULAR DE CONTRATO DE SERVIÇO\n\nCONTRATADA: {{empresa}}\nCONTRATANTE: {{cliente}}\n\nCLÁUSULA 1ª: A CONTRATADA executará serviços de [Serviço] com pontualidade.\nCLÁUSULA 2ª: Pelos serviços realizados, a CONTRATANTE pagará R$ {{valor}}.\n\nData: {{data}}.",
+            "DECLARAÇÃO": "DECLARAÇÃO DE SERVIÇO\n\nDeclaramos para os devidos fins que o Sr(a) {{cliente}} realizou o pagamento total no valor de R$ {{valor}} em favor de {{empresa}}, referente à execução de serviços técnicos concluídos.\n\nFirmado em {{data}}."
         };
+
         function alterarTextoBase() {
             const v = document.getElementById('tipo_doc').value;
             document.getElementById('texto_doc').value = t[v] || "";
