@@ -34,6 +34,6 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "cloudrun"
-run = ["sh", "-c", "php -S 0.0.0.0:3000 index.php"]
+deploymentTarget = "autoscale"
+run = ["sh", "-c", "php -S 0.0.0.0:5000 index.php"]
 build = ["sh", "-c", "composer install"]
