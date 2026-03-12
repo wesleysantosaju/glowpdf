@@ -17,13 +17,12 @@ try {
     $pdo = new PDO("sqlite:" . __DIR__ . "/glow.db");
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->exec('CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        senha TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT "aguardando",
-        expira_em TEXT,
-        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        id INTEGER PRIMARY KEY,
+        nome TEXT,
+        email TEXT UNIQUE,
+        password TEXT NOT NULL,
+        status TEXT CHECK(status IN ("ativo","aguardando","suspenso")),
+        expira_em DATE
     )');
 } catch (Exception $e) {
     $error_db = "Erro de conexão.";
@@ -77,7 +76,7 @@ if (isset($_SESSION["user"])) {
 if (isset($_POST["registrar"])) {
     $hash = password_hash($_POST["senha"], PASSWORD_DEFAULT);
     $stmt = $pdo->prepare(
-        "INSERT INTO usuarios (nome, email, senha, status) VALUES (?, ?, ?, 'aguardando')",
+        "INSERT INTO usuarios (nome, email, password, status) VALUES (?, ?, ?, 'aguardando')",
     );
     $stmt->execute([$_POST["nome"], $_POST["email"], $hash]);
     echo "<script>alert('Cadastro realizado! Faça login.');</script>";
@@ -86,7 +85,7 @@ if (isset($_POST["login"])) {
     $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = ?");
     $stmt->execute([$_POST["email"]]);
     $u = $stmt->fetch();
-    if ($u && password_verify($_POST["senha"], $u["senha"])) {
+    if ($u && password_verify($_POST["senha"], $u["password"])) {
         $_SESSION["user"] = $u;
         header("Location: index.php");
         exit();
