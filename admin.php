@@ -14,12 +14,9 @@ if (
 }
 
 // Configurações do Banco
-$host = "localhost";
-$db = "glow_prod";
-$user = "root";
-$pass = "";
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
+    $pdo = new PDO("sqlite:" . __DIR__ . "/glow.db");
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $e) {
     die("Erro de conexão.");
 }
@@ -82,7 +79,7 @@ $busca = $_GET["q"] ?? "";
 $total_users = $pdo->query("SELECT count(*) FROM usuarios")->fetchColumn();
 $total_ativos = $pdo
     ->query(
-        "SELECT count(*) FROM usuarios WHERE status = 'ativo' AND (expira_em >= CURDATE() OR expira_em IS NULL)",
+        "SELECT count(*) FROM usuarios WHERE status = 'ativo' AND (expira_em >= date('now') OR expira_em IS NULL)",
     )
     ->fetchColumn();
 $total_pendentes = $pdo

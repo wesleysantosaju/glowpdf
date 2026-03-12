@@ -13,12 +13,18 @@ if (file_exists("vendor/autoload.php")) {
 }
 
 // 1. CONEXÃO COM BANCO
-$host = "localhost";
-$db = "glow_prod";
-$user = "root";
-$pass = "";
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
+    $pdo = new PDO("sqlite:" . __DIR__ . "/glow.db");
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec('CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        senha TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT "aguardando",
+        expira_em TEXT,
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+    )');
 } catch (Exception $e) {
     $error_db = "Erro de conexão.";
 }
