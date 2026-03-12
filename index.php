@@ -165,7 +165,8 @@ if (isset($_POST["gerar_pdf"])) {
 <head>
     <meta charset="UTF-8">
     <title>Glow PDF | Sistema Profissional</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="stylesheet" href="/tailwind.css">
     <style>.bg-custom { background: #020617; } .card-custom { background: #0f172a; border: 1px solid #1e293b; }</style>
 </head>
 <body class="bg-custom text-slate-300 min-h-screen font-sans">
