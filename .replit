@@ -35,6 +35,6 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "cloudrun"
+deploymentTarget = "autoscale"
 run = ["sh", "-c", "php -S 0.0.0.0:5000 -t ."]
-build = ["sh", "-c", "composer install && npx tailwindcss ... --minify"]
+build = ["sh", "-c", "composer install"]
