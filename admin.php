@@ -88,7 +88,7 @@ $total_pendentes = $pdo
 
 // Listagem com Busca
 $stmt_list = $pdo->prepare(
-    "SELECT * FROM usuarios WHERE nome LIKE ? OR email LIKE ? ORDER BY id DESC",
+    "SELECT * FROM usuarios WHERE nome LIKE ? OR email LIKE ? ORDER BY criado_em DESC",
 );
 $stmt_list->execute(["%$busca%", "%$busca%"]);
 $usuarios = $stmt_list->fetchAll();
