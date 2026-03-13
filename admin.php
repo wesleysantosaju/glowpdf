@@ -2,7 +2,7 @@
 session_start();
 
 /**
- * SEGURANÇA DO PAINEL ADMIN
+ * SEGURANÇA DO ADMIN
  */
 if (
     !isset($_SESSION["user"]) ||
@@ -13,14 +13,25 @@ if (
 }
 
 /**
- * CONEXÃO SQLITE
+ * CONEXÃO SQLITE (COMPATÍVEL REPLIT)
  */
 try {
-    $pdo = new PDO("sqlite:glow.db");
+
+    $db_path = __DIR__ . "/glow.db";
+
+    if (!file_exists($db_path)) {
+        die("Banco glow.db não encontrado.");
+    }
+
+    $pdo = new PDO("sqlite:" . $db_path);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
 } catch (Exception $e) {
-    die("Erro ao conectar no banco.");
+
+    die("Erro de conexão: " . $e->getMessage());
+
 }
+
 
 /**
  * LOGOUT
@@ -30,6 +41,7 @@ if (isset($_GET["sair"])) {
     header("Location: index.php");
     exit();
 }
+
 
 /**
  * ATIVAR / RENOVAR
@@ -45,9 +57,13 @@ if (isset($_GET["ativar"]) || isset($_GET["renovar"])) {
     $hoje = date("Y-m-d");
 
     if ($user_data && $user_data["status"] == "ativo" && $user_data["expira_em"] >= $hoje) {
+
         $nova_data = date("Y-m-d", strtotime($user_data["expira_em"] . " +30 days"));
+
     } else {
+
         $nova_data = date("Y-m-d", strtotime("+30 days"));
+
     }
 
     $stmt = $pdo->prepare("UPDATE usuarios SET status='ativo', expira_em=? WHERE id=?");
@@ -56,6 +72,7 @@ if (isset($_GET["ativar"]) || isset($_GET["renovar"])) {
     header("Location: admin.php");
     exit();
 }
+
 
 /**
  * BLOQUEAR
@@ -69,6 +86,7 @@ if (isset($_GET["bloquear"])) {
     exit();
 }
 
+
 /**
  * EXCLUIR
  */
@@ -81,10 +99,12 @@ if (isset($_GET["excluir"])) {
     exit();
 }
 
+
 /**
  * BUSCA
  */
 $busca = $_GET["q"] ?? "";
+
 
 /**
  * ESTATÍSTICAS
@@ -104,6 +124,7 @@ FROM usuarios
 WHERE status='aguardando'
 ")->fetchColumn();
 
+
 /**
  * LISTA USUÁRIOS
  */
@@ -121,6 +142,7 @@ $usuarios = $stmt_list->fetchAll(PDO::FETCH_ASSOC);
 
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
 
 <meta charset="UTF-8">
@@ -130,80 +152,69 @@ $usuarios = $stmt_list->fetchAll(PDO::FETCH_ASSOC);
 
 <script src="https://cdn.tailwindcss.com"></script>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-
-<style>
-body{font-family:'Inter',sans-serif}
-</style>
-
 </head>
 
-<body class="bg-[#0f172a] text-slate-200 min-h-screen">
+<body class="bg-[#0f172a] text-white min-h-screen">
 
-<div class="max-w-7xl mx-auto p-6">
+<div class="max-w-6xl mx-auto p-8">
 
-<header class="flex justify-between items-center mb-10">
-
-<div>
-<h1 class="text-3xl font-black text-white italic tracking-tighter">
-GLOW<span class="text-indigo-500">ADMIN</span>
+<h1 class="text-3xl font-black mb-6">
+Glow <span class="text-indigo-500">Admin</span>
 </h1>
 
-<p class="text-slate-500 text-sm">
-Olá Administrador • 
-<a href="?sair=1" class="text-red-400 font-bold hover:underline">Sair</a>
-</p>
-</div>
+<div class="mb-6">
 
-<form method="GET" class="flex">
+<form method="GET">
 
-<input 
-type="text" 
+<input
+type="text"
 name="q"
 value="<?= htmlspecialchars($busca) ?>"
 placeholder="Buscar cliente..."
-class="bg-slate-800 border border-slate-700 px-4 py-2 rounded-l-lg text-sm">
+class="bg-slate-800 p-2 rounded">
 
-<button class="bg-indigo-600 px-4 py-2 rounded-r-lg text-xs font-bold uppercase">
+<button class="bg-indigo-600 px-4 py-2 rounded text-sm">
 Buscar
 </button>
 
+<a href="?sair=1" class="ml-4 text-red-400 text-sm">
+Sair
+</a>
+
 </form>
 
-</header>
-
-
-<div class="grid grid-cols-3 gap-6 mb-10">
-
-<div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
-<p class="text-xs text-slate-500 font-bold uppercase">Total Clientes</p>
-<h2 class="text-4xl font-black"><?= $total_users ?></h2>
-</div>
-
-<div class="bg-emerald-500/10 p-6 rounded-2xl border border-emerald-500/20">
-<p class="text-xs text-emerald-500 font-bold uppercase">Ativos</p>
-<h2 class="text-4xl font-black text-emerald-500"><?= $total_ativos ?></h2>
-</div>
-
-<div class="bg-amber-500/10 p-6 rounded-2xl border border-amber-500/20">
-<p class="text-xs text-amber-500 font-bold uppercase">Pendentes</p>
-<h2 class="text-4xl font-black text-amber-500"><?= $total_pendentes ?></h2>
-</div>
-
 </div>
 
 
-<div class="bg-slate-800 rounded-3xl border border-slate-700 overflow-hidden">
+<div class="grid grid-cols-3 gap-4 mb-8">
 
-<table class="w-full text-left">
+<div class="bg-slate-800 p-4 rounded">
+<p class="text-sm">Total</p>
+<h2 class="text-2xl font-bold"><?= $total_users ?></h2>
+</div>
 
-<thead class="text-slate-500 text-xs uppercase border-b border-slate-700">
+<div class="bg-emerald-900/30 p-4 rounded">
+<p class="text-sm">Ativos</p>
+<h2 class="text-2xl font-bold"><?= $total_ativos ?></h2>
+</div>
+
+<div class="bg-amber-900/30 p-4 rounded">
+<p class="text-sm">Pendentes</p>
+<h2 class="text-2xl font-bold"><?= $total_pendentes ?></h2>
+</div>
+
+</div>
+
+
+<table class="w-full bg-slate-900 rounded overflow-hidden">
+
+<thead class="bg-slate-800 text-xs uppercase">
 
 <tr>
-<th class="p-5">Cliente</th>
-<th class="p-5">Status</th>
-<th class="p-5 text-center">Expira</th>
-<th class="p-5 text-right">Ações</th>
+<th class="p-3 text-left">Cliente</th>
+<th class="p-3">Status</th>
+<th class="p-3">Expira</th>
+<th class="p-3 text-right">Ações</th>
 </tr>
 
 </thead>
@@ -216,54 +227,54 @@ $expirado = $u["expira_em"] && $u["expira_em"] < date("Y-m-d");
 
 ?>
 
-<tr class="border-b border-slate-700 hover:bg-slate-700/30">
+<tr class="border-t border-slate-800">
 
-<td class="p-5">
-<div class="font-bold text-white"><?= $u["nome"] ?></div>
-<div class="text-xs text-slate-500"><?= $u["email"] ?></div>
+<td class="p-3">
+
+<div class="font-bold"><?= $u["nome"] ?></div>
+<div class="text-xs text-slate-400"><?= $u["email"] ?></div>
+
 </td>
 
-<td class="p-5">
+<td class="text-center">
 
-<?php if ($u["status"]=="ativo" && !$expirado): ?>
+<?php if ($u["status"] == "ativo" && !$expirado): ?>
 
-<span class="text-emerald-500 font-bold text-xs">ATIVO</span>
+<span class="text-emerald-400">ATIVO</span>
 
 <?php elseif ($expirado): ?>
 
-<span class="text-red-500 font-bold text-xs">EXPIRADO</span>
+<span class="text-red-400">EXPIRADO</span>
 
 <?php else: ?>
 
-<span class="text-amber-500 font-bold text-xs">AGUARDANDO</span>
+<span class="text-amber-400">AGUARDANDO</span>
 
 <?php endif; ?>
 
 </td>
 
-<td class="p-5 text-center text-sm">
+<td class="text-center text-sm">
 
-<?= $u["expira_em"] ? date("d/m/Y",strtotime($u["expira_em"])) : "---" ?>
+<?= $u["expira_em"] ? date("d/m/Y", strtotime($u["expira_em"])) : "---" ?>
 
 </td>
 
-<td class="p-5 text-right space-x-2">
+<td class="text-right p-3">
 
-<?php if ($u["status"]!=="ativo" || $expirado): ?>
+<?php if ($u["status"] !== "ativo" || $expirado): ?>
 
-<a href="?ativar=<?= $u["id"] ?>" class="bg-indigo-600 px-3 py-1 rounded text-xs font-bold">Ativar</a>
+<a href="?ativar=<?= $u["id"] ?>" class="bg-indigo-600 px-3 py-1 rounded text-xs">Ativar</a>
 
 <?php else: ?>
 
-<a href="?renovar=<?= $u["id"] ?>" class="bg-emerald-600 px-3 py-1 rounded text-xs font-bold">Renovar</a>
+<a href="?renovar=<?= $u["id"] ?>" class="bg-emerald-600 px-3 py-1 rounded text-xs">Renovar</a>
 
-<a href="?bloquear=<?= $u["id"] ?>" class="bg-amber-600 px-3 py-1 rounded text-xs font-bold">Bloquear</a>
+<a href="?bloquear=<?= $u["id"] ?>" class="bg-amber-600 px-3 py-1 rounded text-xs">Bloquear</a>
 
 <?php endif; ?>
 
-<a href="?excluir=<?= $u["id"] ?>" onclick="return confirm('Excluir cliente?')" class="bg-red-600 px-3 py-1 rounded text-xs font-bold">
-Excluir
-</a>
+<a href="?excluir=<?= $u["id"] ?>" class="bg-red-600 px-3 py-1 rounded text-xs">Excluir</a>
 
 </td>
 
@@ -274,12 +285,6 @@ Excluir
 </tbody>
 
 </table>
-
-</div>
-
-<footer class="mt-10 text-center text-xs text-slate-600">
-Glow Admin System © 2026
-</footer>
 
 </div>
 
