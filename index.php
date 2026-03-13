@@ -13,10 +13,10 @@ if (file_exists("vendor/autoload.php")) {
 }
 
 // 1. CONEXÃO COM BANCO
-$host = "localhost"; $db = "glow_prod"; $user = "root"; $pass = "";
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
+    $pdo = new PDO("sqlite:" . __DIR__ . "/glow.db");
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (Exception $e) { $error_db = "Erro de conexão."; }
 
 // --- FUNÇÃO GERAÇÃO DE PIX ---
