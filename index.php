@@ -15,10 +15,11 @@ if (file_exists("vendor/autoload.php")) {
 // 1. CONEXÃO COM BANCO
 $host = "localhost"; $db = "glow_prod"; $user = "root"; $pass = "";
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (Exception $e) { $error_db = "Erro de conexão."; }
-
+    $pdo = new PDO("sqlite:glow.db");
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (Exception $e) {
+    die("Erro ao conectar no banco de dados: " . $e->getMessage());
+}
 // --- FUNÇÃO GERAÇÃO DE PIX ---
 function montarPixDinamico($valor) {
     $valor_formatado = number_format($valor, 2, ".", "");
@@ -39,7 +40,7 @@ function montarPixDinamico($valor) {
 
 // --- VERIFICAÇÃO DE STATUS ---
 $hoje = date("Y-m-d"); $is_pro = false;
-if (isset($_SESSION["user"])) {
+if (isset($_SESSION["user"]) && isset($pdo)) {
     $stmt = $pdo->prepare("SELECT status, expira_em FROM usuarios WHERE id = ?");
     $stmt->execute([$_SESSION["user"]["id"]]);
     $check = $stmt->fetch();
