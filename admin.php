@@ -54,17 +54,19 @@ if (isset($_GET["ativar"]) || isset($_GET["renovar"])) {
     $stmt_check->execute([$id]);
     $user_data = $stmt_check->fetch(PDO::FETCH_ASSOC);
 
-    $hoje = date("Y-m-d");
-
-    if ($user_data && $user_data["status"] == "ativo" && $user_data["expira_em"] >= $hoje) {
-
-        $nova_data = date("Y-m-d", strtotime($user_data["expira_em"] . " +30 days"));
-
+    $hoje = new DateTime();
+    
+    // Se o usuário já está ativo e não expirou, usamos a data de expiração atual como base
+    if ($user_data && $user_data["status"] == "ativo" && $user_data["expira_em"] >= $hoje->format("Y-m-d")) {
+        $data_base = new DateTime($user_data["expira_em"]);
     } else {
-
-        $nova_data = date("Y-m-d", strtotime("+30 days"));
-
+        // Se está pendente ou expirado, começa a contar a partir de hoje
+        $data_base = $hoje;
     }
+
+    // Adiciona exatamente 1 mês à data base
+    $data_base->modify('+1 month');
+    $nova_data = $data_base->format("Y-m-d");
 
     $stmt = $pdo->prepare("UPDATE usuarios SET status='ativo', expira_em=? WHERE id=?");
     $stmt->execute([$nova_data, $id]);
@@ -129,8 +131,7 @@ WHERE status='aguardando'
  * LISTA USUÁRIOS
  */
 $stmt_list = $pdo->prepare("
-SELECT * 
-FROM usuarios 
+SELECT * FROM usuarios 
 WHERE nome LIKE ? OR email LIKE ? 
 ORDER BY id DESC
 ");
