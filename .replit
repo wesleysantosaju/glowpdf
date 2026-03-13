@@ -36,5 +36,5 @@ externalPort = 80
 
 [deployment]
 deploymentTarget = "cloudrun"
-run = ["sh", "-c", "php -S 0.0.0.0:5000 -t ."]
-build = ["sh", "-c", "composer install"]
+run = ["sh", "-c", "php -S 0.0.0.0:$PORT"]
+build = ["sh", "-c", "composer install --no-dev"]
