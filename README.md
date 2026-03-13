@@ -3,9 +3,6 @@
 O **Glow PDF** é uma solução SaaS (Software as a Service) de alta performance desenvolvida para profissionais e pequenas empresas que buscam elevar o nível de sua apresentação comercial. O sistema permite a emissão de documentos jurídicos e comerciais (Orçamentos, Contratos, Recibos e Declarações) com design minimalista, rapidez e validade jurídica.
 
 ![Status do Projeto](https://img.shields.io/badge/Status-Est%C3%A1vel-brightgreen)
-![Versão](https://img.shields.com/badge/Vers%C3%A3o-10.0-indigo)
-![Licença](https://img.shields.com/badge/Licen%C3%A7a-Comercial-blue)
-![PHP](https://img.shields.com/badge/PHP-8.x-777bb4)
 
 ## 🚀 Principais Funcionalidades
 
