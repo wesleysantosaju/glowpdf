@@ -12,9 +12,10 @@ if (file_exists("vendor/autoload.php")) {
     require_once "vendor/autoload.php";
 }
 
-// 1. CONEXÃO COM BANCO
+// 1. CONEXÃO COM BANCO (AJUSTADO PARA CAMINHO ABSOLUTO)
 try {
-    $pdo = new PDO("sqlite:glow.db");
+    $db_path = __DIR__ . "/glow.db";
+    $pdo = new PDO("sqlite:" . $db_path);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $e) {
     die("Erro ao conectar no banco de dados: " . $e->getMessage());
@@ -77,7 +78,6 @@ if (isset($_POST["gerar_link"])) {
             $stmt = $pdo->prepare("INSERT INTO documentos (token, usuario_id, tipo, empresa, cliente, valor, descricao, logo_empresa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$token, $_SESSION['user']['id'], $_POST['tipo_documento'], $empresa, $cliente, $valor, $desc, $logo_b64]);
             
-            // Salva na sessão e redireciona para evitar duplicidade ao atualizar
             $_SESSION['link_recem_gerado'] = "https://" . $_SERVER['HTTP_HOST'] . "/assinar.php?id=" . $token;
             header("Location: index.php");
             exit();
@@ -85,7 +85,6 @@ if (isset($_POST["gerar_link"])) {
     }
 }
 
-// CAPTURA O LINK DA SESSÃO E LIMPA EM SEGUIDA
 $link_gerado = "";
 if (isset($_SESSION['link_recem_gerado'])) {
     $link_gerado = $_SESSION['link_recem_gerado'];
@@ -263,8 +262,11 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
                 <div class="flex flex-col"><label class="text-[10px] font-bold text-slate-500 uppercase mb-2 text-xs tracking-widest italic">Corpo do Texto 🖋️</label><textarea name="descricao" id="texto_doc" rows="10" class="w-full p-5 rounded-3xl bg-slate-950 border border-slate-800 outline-none text-sm leading-relaxed focus:border-indigo-500 shadow-inner"></textarea></div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button type="submit" name="gerar_pdf" class="bg-slate-800 hover:bg-slate-700 text-white font-black py-5 rounded-2xl uppercase tracking-widest transition shadow-xl text-sm md:text-base italic">🚀 GERAR PDF MANUAL</button>
+                    
                     <?php if ($is_pro): ?>
-                    <button type="submit" name="gerar_link" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-xl transition text-sm italic">🔗 GERAR LINK PARA CLIENTE</button>
+                        <button type="submit" name="gerar_link" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-xl transition text-sm italic">🔗 GERAR LINK PARA CLIENTE</button>
+                    <?php else: ?>
+                        <button type="button" onclick="alert('Esta função é exclusiva para membros VIP! 💎')" class="bg-indigo-600/30 text-indigo-400 cursor-not-allowed font-black py-5 rounded-2xl uppercase tracking-widest text-sm italic opacity-60">🔗 GERAR LINK (APENAS VIP 💎)</button>
                     <?php endif; ?>
                 </div>
             </form>
@@ -323,7 +325,6 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
             alert('Link copiado para a área de transferência! 📋');
         }
 
-        // Abre o modal de link caso ele tenha sido recém gerado (via sessão)
         <?php if (!empty($link_gerado)): ?>
             abrirModalLink('<?= $link_gerado ?>');
         <?php endif; ?>
