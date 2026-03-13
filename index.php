@@ -1,6 +1,6 @@
 <?php
 /**
- * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (Fluxo Completo + FIX CONEXÃO + FIX BOTÕES)
+ * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (Fluxo Completo + FIX LOGO & COMPRESSÃO + Emojis)
  */
 session_start();
 ob_start();
@@ -12,14 +12,12 @@ if (file_exists("vendor/autoload.php")) {
     require_once "vendor/autoload.php";
 }
 
-// 1. CONEXÃO COM BANCO (Ajustado de localhost para 127.0.0.1 para evitar o erro 2002)
-$host = "127.0.0.1"; $db = "glow_prod"; $user = "root"; $pass = "";
+// 1. CONEXÃO COM BANCO
+$host = "localhost"; $db = "glow_prod"; $user = "root"; $pass = "";
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (Exception $e) { 
-    die("Erro de conexão: " . $e->getMessage()); 
-}
+} catch (Exception $e) { $error_db = "Erro de conexão."; }
 
 // --- FUNÇÃO GERAÇÃO DE PIX ---
 function montarPixDinamico($valor) {
@@ -48,7 +46,7 @@ if (isset($_SESSION["user"])) {
     if ($check && $check["status"] === "ativo" && $check["expira_em"] >= $hoje) { $is_pro = true; }
 }
 
-// LÓGICA DE GERAR LINK (SALVANDO LOGO COMPRIMIDA NO BANCO)
+// LÓGICA DE GERAR LINK
 if (isset($_POST["gerar_link"])) {
     if (!$is_pro) { echo "<script>alert('Apenas VIPs podem enviar links!');</script>"; }
     else {
@@ -64,23 +62,20 @@ if (isset($_POST["gerar_link"])) {
             $ext = pathinfo($_FILES["logo_file"]["name"], PATHINFO_EXTENSION);
             $source = ($ext == 'png') ? @imagecreatefrompng($img_path) : @imagecreatefromjpeg($img_path);
             if ($source) {
-                $new_width = 300; 
-                list($width, $height) = getimagesize($img_path);
+                $new_width = 300; list($width, $height) = getimagesize($img_path);
                 $new_height = ($height / $width) * $new_width;
                 $tmp = imagecreatetruecolor($new_width, $new_height);
                 if($ext == 'png'){ imagealphablending($tmp, false); imagesavealpha($tmp, true); }
                 imagecopyresampled($tmp, $source, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-                ob_start();
-                ($ext == 'png') ? imagepng($tmp, null, 8) : imagejpeg($tmp, null, 75);
+                ob_start(); ($ext == 'png') ? imagepng($tmp, null, 8) : imagejpeg($tmp, null, 75);
                 $logo_b64 = 'data:image/' . $ext . ';base64,' . base64_encode(ob_get_clean());
                 imagedestroy($source); imagedestroy($tmp);
             }
         }
-
         try {
             $stmt = $pdo->prepare("INSERT INTO documentos (token, usuario_id, tipo, empresa, cliente, valor, descricao, logo_empresa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$token, $_SESSION['user']['id'], $_POST['tipo_documento'], $empresa, $cliente, $valor, $desc, $logo_b64]);
-            $link = "http://" . $_SERVER['HTTP_HOST'] . "/assinar.php?id=" . $token;
+            $link = "https://" . $_SERVER['HTTP_HOST'] . "/assinar.php?id=" . $token;
             echo "<script>prompt('Link gerado! Copie e envie para o cliente:', '$link');</script>";
         } catch (Exception $e) { echo "<script>alert('Erro ao salvar no banco.');</script>"; }
     }
@@ -93,19 +88,17 @@ if (isset($_POST["empresa_assinar_final"])) {
     header("Location: index.php?sucesso=1"); exit();
 }
 
-// 3. LÓGICA DO GERADOR PDF FINAL
+// LÓGICA DO GERADOR PDF
 if (isset($_POST["gerar_pdf"]) || isset($_GET["baixar_doc"])) {
     if (ob_get_length()) { ob_end_clean(); }
     $logo_final = "";
-
     if(isset($_GET["baixar_doc"])){
         $stmt = $pdo->prepare("SELECT * FROM documentos WHERE id = ? AND usuario_id = ?");
         $stmt->execute([$_GET["baixar_doc"], $_SESSION['user']['id']]);
         $d = $stmt->fetch();
         if(!$d) die("Acesso negado.");
         $tipo = $d['tipo']; $cliente = $d['cliente']; $valor = $d['valor']; $empresa = $d['empresa']; $descricao = nl2br($d['descricao']);
-        $assinatura_cliente_img = $d['assinatura_cliente'];
-        $assinatura_empresa_img = $d['assinatura_empresa'];
+        $assinatura_cliente_img = $d['assinatura_cliente']; $assinatura_empresa_img = $d['assinatura_empresa'];
         $logo_final = $d['logo_empresa']; 
     } else {
         $tipo = $_POST["tipo_documento"]; $cliente = htmlspecialchars($_POST["cliente"]); $valor = htmlspecialchars($_POST["valor"]); $empresa = htmlspecialchars($_POST["empresa"]);
@@ -116,16 +109,12 @@ if (isset($_POST["gerar_pdf"]) || isset($_GET["baixar_doc"])) {
             $logo_final = 'data:image/' . pathinfo($_FILES["logo_file"]["name"], PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($_FILES["logo_file"]["tmp_name"]));
         }
     }
-
     $logo_html = !empty($logo_final) ? '<img src="' . $logo_final . '" style="max-height: 60px;">' : "";
     $ass_cli = !empty($assinatura_cliente_img) ? '<img src="' . $assinatura_cliente_img . '" style="width: 180px; height: 60px; border-bottom: 1px solid #000;">' : "_______________________";
     $ass_emp = !empty($assinatura_empresa_img) ? '<img src="' . $assinatura_empresa_img . '" style="width: 180px; height: 60px; border-bottom: 1px solid #000;">' : "_______________________";
-
     $options = new Options(); $options->set("isRemoteEnabled", true); $dompdf = new Dompdf($options);
     $watermark = !$is_pro ? '<div style="position:fixed; top:35%; left:0; width:100%; text-align:center; transform:rotate(-30deg); font-size:60px; color:rgba(200,0,0,0.06); font-weight:900; z-index:-1;">SEM VALOR LEGAL</div>' : "";
-    
     $html = "<html><head><meta charset='UTF-8'><style>body { font-family: sans-serif; padding: 30px; color: #333; line-height: 1.5; font-size: 12px; } .header { border-bottom: 3px solid #6366f1; padding-bottom: 10px; margin-bottom: 20px; } .valor-destaque { background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 15px 0; font-size: 16px; font-weight: bold; color: #6366f1; text-align: right; } .assinaturas { margin-top: 40px; width: 100%; } .col { width: 48%; text-align: center; font-size: 11px; }</style></head><body>$watermark<table width='100%' class='header'><tr><td>$logo_html<h2 style='margin:0'>$empresa</h2></td><td align='right'><h1 style='margin:0; font-size:20px;'>$tipo</h1><p style='margin:0'>".date("d/m/Y")."</p></td></tr></table><p><strong>Para:</strong> $cliente</p><div class='valor-destaque'>VALOR TOTAL: R$ $valor</div><div style='min-height:400px;'>$descricao</div><table class='assinaturas'><tr><td class='col'>$ass_cli<br><strong>$cliente</strong><br>Contratante</td><td class='col' style='width:4%;'></td><td class='col'>$ass_emp<br><strong>$empresa</strong><br>Contratada</td></tr></table></body></html>";
-    
     $dompdf->loadHtml($html); $dompdf->setPaper("A4", "portrait"); $dompdf->render(); 
     header("Content-Type: application/pdf"); header("Content-Disposition: attachment; filename=\"documento.pdf\""); echo $dompdf->output(); exit();
 }
@@ -240,7 +229,7 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
                     <div class="flex flex-col italic"><label class="text-[10px] font-bold text-slate-500 uppercase mb-2 text-xs tracking-widest italic italic">Sua Empresa / CPF 🏢</label><input type="text" name="empresa" id="emp_f" required placeholder="Seu Nome" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 outline-none text-sm focus:border-indigo-500 italic italic"></div>
                     <div class="flex flex-col italic"><label class="text-[10px] font-bold text-slate-500 uppercase mb-2 text-xs tracking-widest italic italic">Valor R$ 💰</label><input type="text" name="valor" id="val_f" required placeholder="0,00" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-indigo-400 font-bold text-sm focus:border-indigo-500 italic italic"></div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end italic italic italic">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end italic italic italic italic">
                     <div class="md:col-span-2 flex flex-col italic italic"><label class="text-[10px] font-bold text-slate-500 uppercase mb-2 text-xs tracking-widest italic italic italic">Nome do Cliente 👤</label><input type="text" name="cliente" id="cli_f" required placeholder="Destinatário" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-sm focus:border-indigo-500 italic italic"></div>
                     <div class="flex flex-col italic italic"><label class="text-[10px] font-bold text-indigo-400 uppercase mb-2 text-xs tracking-widest italic font-black text-indigo-400 italic italic">Logomarca (VIP 💎)</label><?php if ($is_pro): ?><input type="file" name="logo_file" class="w-full p-3 text-[10px] bg-slate-950 rounded-2xl border border-dashed border-indigo-500/50 text-indigo-400 font-bold uppercase shadow-sm italic italic italic"><?php else: ?><div class="w-full p-4 bg-slate-800/20 rounded-2xl text-slate-500 italic text-center border border-slate-800 text-[10px] italic">Liberado apenas no VIP 💎</div><?php endif; ?></div>
                 </div>
