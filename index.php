@@ -1,6 +1,6 @@
 <?php
 /**
- * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (RESTAURADO + FIX QRCODE + FIX TABELA)
+ * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (FIX REENVIO DE FORMULÁRIO + MODAL LINK)
  */
 session_start();
 ob_start();
@@ -47,7 +47,7 @@ if (isset($_SESSION["user"]) && isset($pdo)) {
     if ($check && $check["status"] === "ativo" && $check["expira_em"] >= $hoje) { $is_pro = true; }
 }
 
-// LÓGICA DE GERAR LINK
+// LÓGICA DE GERAR LINK (COM FIX DE ATUALIZAÇÃO DE PÁGINA)
 if (isset($_POST["gerar_link"])) {
     if (!$is_pro) { echo "<script>alert('Apenas VIPs podem enviar links!');</script>"; }
     else {
@@ -76,10 +76,20 @@ if (isset($_POST["gerar_link"])) {
         try {
             $stmt = $pdo->prepare("INSERT INTO documentos (token, usuario_id, tipo, empresa, cliente, valor, descricao, logo_empresa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$token, $_SESSION['user']['id'], $_POST['tipo_documento'], $empresa, $cliente, $valor, $desc, $logo_b64]);
-            $link = "https://" . $_SERVER['HTTP_HOST'] . "/assinar.php?id=" . $token;
-            echo "<script>prompt('Link gerado! Copie e envie para o cliente:', '$link');</script>";
+            
+            // Salva na sessão e redireciona para evitar duplicidade ao atualizar
+            $_SESSION['link_recem_gerado'] = "https://" . $_SERVER['HTTP_HOST'] . "/assinar.php?id=" . $token;
+            header("Location: index.php");
+            exit();
         } catch (Exception $e) { echo "<script>alert('Erro ao salvar no banco.');</script>"; }
     }
+}
+
+// CAPTURA O LINK DA SESSÃO E LIMPA EM SEGUIDA
+$link_gerado = "";
+if (isset($_SESSION['link_recem_gerado'])) {
+    $link_gerado = $_SESSION['link_recem_gerado'];
+    unset($_SESSION['link_recem_gerado']);
 }
 
 // LÓGICA DA EMPRESA ASSINAR
@@ -187,58 +197,20 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
         <?php endif; ?>
 
         <?php if (isset($_SESSION["user"]) && !$is_pro && $_SESSION["user"]["status"] === "aguardando"): ?>
-
-<?php 
-$pix_final = montarPixDinamico(29.90);
-
-$mensagem = "*Comprovante de Assinatura*\n\n";
-$mensagem .= "Olá, tudo bem?\n\n";
-$mensagem .= "Segue o comprovante do pagamento da minha assinatura do *Glow PDF VIP*.\n\n";
-$mensagem .= "_E-mail da conta:_\n";
-$mensagem .= $_SESSION['user']['email'] . "\n\n";
-$mensagem .= "Fico no aguardo da liberação do acesso.\n\n";
-$mensagem .= "Obrigado!";
-
-$link_whatsapp = "https://wa.me/5579991489856?text=" . rawurlencode($mensagem);
-?>
-
-<div class="mb-10 p-6 md:p-10 card-custom rounded-[2.5rem] border-amber-500/30 text-center max-w-2xl mx-auto shadow-2xl">
-
-<h2 class="text-xl font-bold text-white mb-6 uppercase tracking-tighter italic">
-Aguardando Ativação VIP
-</h2>
-
-<div class="bg-white p-4 rounded-3xl inline-block mb-6 shadow-xl">
-<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?= urlencode($pix_final) ?>" class="mx-auto">
-</div>
-
-<div class="text-left bg-black/40 p-5 rounded-2xl mb-6 text-center shadow-inner">
-
-<p class="text-[10px] text-slate-500 font-bold uppercase mb-2">
-Pix Copia e Cola (R$ 29,90)
-</p>
-
-<textarea readonly
-class="w-full bg-transparent border-none text-[10px] text-indigo-400 font-mono resize-none h-12 outline-none text-center"
-onclick="this.select(); navigator.clipboard.writeText(this.value); alert('Copiado!')">
-
-<?= $pix_final ?>
-
-</textarea>
-
-</div>
-
-<a href="<?= $link_whatsapp ?>"
-target="_blank"
-class="w-full inline-block bg-emerald-600 text-white text-xs font-black px-8 py-4 rounded-2xl uppercase tracking-widest shadow-lg text-center">
-
-ENVIAR COMPROVANTE 📲
-
-</a>
-
-</div>
-
-<?php endif; ?>
+            <?php 
+            $pix_final = montarPixDinamico(29.90);
+            $msg = rawurlencode("*Comprovante de Assinatura*\n\nOlá, tudo bem?\n\nSegue o comprovante do pagamento da minha assinatura do *Glow PDF VIP*.\n\n_E-mail da conta:_\n" . $_SESSION['user']['email'] . "\n\nFico no aguardo da liberação do acesso.\n\nObrigado!");
+            ?>
+            <div class="mb-10 p-6 md:p-10 card-custom rounded-[2.5rem] border-amber-500/30 text-center max-w-2xl mx-auto shadow-2xl">
+                 <h2 class="text-xl font-bold text-white mb-6 uppercase tracking-tighter italic">Aguardando Ativação VIP 💎</h2>
+                 <div class="bg-white p-4 rounded-3xl inline-block mb-6 shadow-xl"><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?= urlencode($pix_final) ?>" class="mx-auto"></div>
+                 <div class="text-left bg-black/40 p-5 rounded-2xl mb-6 text-center shadow-inner">
+                    <p class="text-[10px] text-slate-500 font-bold uppercase mb-2">Pix Copia e Cola (R$ 29,90) 💰</p>
+                    <textarea readonly class="w-full bg-transparent border-none text-[10px] text-indigo-400 font-mono resize-none h-12 outline-none text-center" onclick="this.select(); navigator.clipboard.writeText(this.value); alert('Copiado! 📋')"><?= $pix_final ?></textarea>
+                 </div>
+                 <a href="https://wa.me/5579991489856?text=<?= $msg ?>" target="_blank" class="w-full inline-block bg-emerald-600 text-white text-xs font-black px-8 py-4 rounded-2xl uppercase tracking-widest shadow-lg text-center">ENVIAR COMPROVANTE 📲</a>
+            </div>
+        <?php endif; ?>
 
         <?php if($is_pro): ?>
         <div class="mb-10 card-custom p-6 rounded-3xl border-indigo-500/20 shadow-xl">
@@ -262,7 +234,7 @@ ENVIAR COMPROVANTE 📲
                             </td>
                             <td class="text-right">
                                 <?php if($md['status'] == 'pendente'): ?>
-                                    <button onclick="prompt('Link:', 'https://<?= $_SERVER['HTTP_HOST'] ?>/assinar.php?id=<?= $md['token'] ?>')" class="text-indigo-400 font-bold uppercase border border-indigo-500/20 px-2 py-1 rounded">Link 🔗</button>
+                                    <button onclick="abrirModalLink('https://<?= $_SERVER['HTTP_HOST'] ?>/assinar.php?id=<?= $md['token'] ?>')" class="text-indigo-400 font-bold uppercase border border-indigo-500/20 px-2 py-1 rounded">Link 🔗</button>
                                 <?php elseif($md['status'] == 'assinado_cliente'): ?>
                                     <button onclick="abrirAssinaturaEmpresa(<?= $md['id'] ?>)" class="bg-indigo-600 text-white px-3 py-1 rounded-lg font-black uppercase text-[9px] shadow-lg">ASSINAR ✍️</button>
                                 <?php else: ?>
@@ -299,12 +271,37 @@ ENVIAR COMPROVANTE 📲
         </div>
     </main>
 
+    <div id="modal-link-copiar" class="fixed inset-0 bg-black/90 hidden z-50 items-center justify-center p-4">
+        <div class="card-custom p-8 rounded-2xl w-full max-w-sm text-center">
+            <h2 class="text-xl font-bold text-white mb-4 uppercase italic">Link de Assinatura 🔗</h2>
+            <div class="bg-black/40 p-4 rounded-xl border border-slate-800 mb-6">
+                <input type="text" id="input-link" readonly class="w-full bg-transparent border-none text-indigo-400 text-sm text-center outline-none mb-4">
+                <button onclick="copiarLink()" class="w-full bg-indigo-600 py-3 rounded-xl font-bold text-white uppercase text-xs">Copiar Link 📋</button>
+            </div>
+            <button onclick="toggleModal('modal-link-copiar', false)" class="text-slate-500 text-xs font-bold uppercase">Fechar ❌</button>
+        </div>
+    </div>
+
     <div id="modal-reg" class="fixed inset-0 bg-black/90 hidden z-50 items-center justify-center p-4">
-        <div class="card-custom p-8 rounded-2xl w-full max-w-sm"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center text-sm tracking-widest italic">Crie sua Conta VIP 💎</h2><form method="POST"><input type="text" name="nome" placeholder="Nome Completo" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 mb-4"><input type="email" name="email" placeholder="E-mail" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 mb-4"><input type="password" name="senha" placeholder="Senha" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 mb-4"><button type="submit" name="registrar" class="w-full bg-emerald-600 py-4 rounded-xl font-black uppercase text-xs shadow-lg">CRIAR CONTA 💎</button><button type="button" onclick="toggleModal('modal-reg', false)" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2 text-center text-xs">Voltar ❌</button></form></div>
+        <div class="card-custom p-8 rounded-2xl w-full max-w-sm"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center text-sm tracking-widest italic">Crie sua Conta VIP 💎</h2><form method="POST"><input type="text" name="nome" placeholder="Nome Completo" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 mb-4"><input type="email" name="email" placeholder="E-mail" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 mb-4"><input type="password" name="senha" placeholder="Senha" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 mb-4"><button type="submit" name="registrar" class="w-full bg-emerald-600 py-4 rounded-xl font-black uppercase text-xs shadow-lg italic">CRIAR CONTA 💎</button><button type="button" onclick="toggleModal('modal-reg', false)" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2 text-center text-xs">Voltar ❌</button></form></div>
     </div>
 
     <div id="modal-assinatura-empresa" class="fixed inset-0 bg-black/95 hidden z-50 items-center justify-center p-4">
-        <div class="card-custom p-8 rounded-3xl w-full max-lg border-indigo-500 shadow-2xl italic"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center italic">Sua Assinatura (Empresa) ✍️</h2><form method="POST"><input type="hidden" name="doc_id" id="modal_doc_id"><input type="hidden" name="assinatura_data_empresa" id="assinatura_data_empresa"><div class="relative bg-white rounded-2xl overflow-hidden mb-4 shadow-inner" style="height: 220px;"><canvas id="pad-empresa" class="w-full h-full"></canvas></div><div class="flex gap-2"><button type="button" onclick="limparEmpresa()" class="w-1/3 bg-slate-800 text-slate-500 font-bold uppercase text-[10px] py-4 rounded-xl hover:text-red-400 transition">Limpar 🗑️</button><button type="submit" name="empresa_assinar_final" onclick="salvarEmpresa()" class="w-2/3 bg-indigo-600 py-4 rounded-xl font-black text-white uppercase tracking-widest">FINALIZAR E GERAR 🚀</button></div><button type="button" onclick="toggleModal('modal-assinatura-empresa', false)" class="w-full text-slate-600 mt-4 text-[10px] uppercase font-bold text-center italic">Cancelar ❌</button></form></div>
+        <div class="card-custom p-8 rounded-3xl w-full max-lg border-indigo-500 shadow-2xl italic">
+            <h2 class="text-xl font-bold text-white mb-6 uppercase text-center italic">Sua Assinatura (Empresa) ✍️</h2>
+            <form method="POST">
+                <input type="hidden" name="doc_id" id="modal_doc_id">
+                <input type="hidden" name="assinatura_data_empresa" id="assinatura_data_empresa">
+                <div class="relative bg-white rounded-2xl overflow-hidden mb-4 shadow-inner" style="height: 220px;">
+                    <canvas id="pad-empresa" class="w-full h-full"></canvas>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="limparEmpresa()" class="w-1/3 bg-slate-800 text-slate-500 font-bold uppercase text-[10px] py-4 rounded-xl hover:text-red-400 transition">Limpar 🗑️</button>
+                    <button type="submit" name="empresa_assinar_final" onclick="salvarEmpresa()" class="w-2/3 bg-indigo-600 py-4 rounded-xl font-black text-white uppercase tracking-widest">FINALIZAR E GERAR 🚀</button>
+                </div>
+                <button type="button" onclick="toggleModal('modal-assinatura-empresa', false)" class="w-full text-slate-600 mt-4 text-[10px] uppercase font-bold text-center italic">Cancelar ❌</button>
+            </form>
+        </div>
     </div>
 
     <div id="modal-login" class="fixed inset-0 bg-black/90 hidden z-50 items-center justify-center p-4">
@@ -313,6 +310,51 @@ ENVIAR COMPROVANTE 📲
 
     <script>
         function toggleModal(id, show) { const el = document.getElementById(id); if(show) { el.classList.remove('hidden'); el.classList.add('flex'); } else { el.classList.add('hidden'); el.classList.remove('flex'); } }
+        
+        function abrirModalLink(link) {
+            document.getElementById('input-link').value = link;
+            toggleModal('modal-link-copiar', true);
+        }
+
+        function copiarLink() {
+            const input = document.getElementById('input-link');
+            input.select();
+            navigator.clipboard.writeText(input.value);
+            alert('Link copiado para a área de transferência! 📋');
+        }
+
+        // Abre o modal de link caso ele tenha sido recém gerado (via sessão)
+        <?php if (!empty($link_gerado)): ?>
+            abrirModalLink('<?= $link_gerado ?>');
+        <?php endif; ?>
+
+        let canvasE, ctxE, drawingE = false;
+        function initCanvasEmpresa() {
+            canvasE = document.getElementById('pad-empresa');
+            ctxE = canvasE.getContext('2d');
+            canvasE.width = canvasE.offsetWidth;
+            canvasE.height = canvasE.offsetHeight;
+            const getPos = (e) => {
+                const rect = canvasE.getBoundingClientRect();
+                const cx = e.touches ? e.touches[0].clientX : e.clientX;
+                const cy = e.touches ? e.touches[0].clientY : e.clientY;
+                return { x: cx - rect.left, y: cy - rect.top };
+            };
+            canvasE.addEventListener('mousedown', (e) => { drawingE = true; ctxE.beginPath(); const p = getPos(e); ctxE.moveTo(p.x, p.y); });
+            canvasE.addEventListener('mousemove', (e) => { if (!drawingE) return; const p = getPos(e); ctxE.lineTo(p.x, p.y); ctxE.stroke(); ctxE.strokeStyle = "#000"; ctxE.lineWidth = 3; });
+            window.addEventListener('mouseup', () => drawingE = false);
+            canvasE.addEventListener('touchstart', (e) => { e.preventDefault(); drawingE = true; ctxE.beginPath(); const p = getPos(e); ctxE.moveTo(p.x, p.y); });
+            canvasE.addEventListener('touchmove', (e) => { if (!drawingE) return; e.preventDefault(); const p = getPos(e); ctxE.lineTo(p.x, p.y); ctxE.stroke(); });
+            canvasE.addEventListener('touchend', () => drawingE = false);
+        }
+        function abrirAssinaturaEmpresa(id) {
+            document.getElementById('modal_doc_id').value = id;
+            toggleModal('modal-assinatura-empresa', true);
+            setTimeout(initCanvasEmpresa, 100);
+        }
+        function limparEmpresa() { if(ctxE) ctxE.clearRect(0,0,canvasE.width,canvasE.height); }
+        function salvarEmpresa() { if(canvasE) document.getElementById('assinatura_data_empresa').value = canvasE.toDataURL(); }
+
         document.getElementById('val_f').addEventListener('input', function (e) { let v = e.target.value.replace(/\D/g, ""); v = (v / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); e.target.value = v; });
         const t = { "ORÇAMENTO TÉCNICO": "PROPOSTA COMERCIAL DE PRESTAÇÃO DE SERVIÇOS\n\nEMITENTE: {{empresa}}\nCLIENTE: {{cliente}}\nDATA DE EMISSÃO: {{data}}\n\n1. OBJETO TÉCNICO\nO presente orçamento visa a execução de serviços especializados de [Descreva o Serviço].\n\n2. INVESTIMENTO E CONDIÇÕES\nPelos serviços acima descritos, o valor total do investimento será de R$ {{valor}}.\n\n3. VALIDADE\nEsta proposta comercial tem validade de 10 dias corridos.", "RECIBO DE PAGAMENTO": "RECIBO DE QUITAÇÃO INTEGRAL\n\nVALOR: R$ {{valor}}\n\nEu, representante de {{empresa}}, declaro ter recebido de {{cliente}} a importância de R$ {{valor}}, referente ao pagamento total por serviços prestados no período de [Descreva o Período].\n\nDou plena e geral quitação.\n\nDocumento emitido em {{data}}.", "CONTRATO DE SERVIÇO": "INSTRUMENTO PARTICULAR DE CONTRATO DE PRESTAÇÃO DE SERVIÇOS\n\nCONTRATADA: {{empresa}}\nCONTRATANTE: {{cliente}}\n\nCLÁUSULA 1ª - OBJETO: A CONTRATADA compromete-se a executar serviços técnicos para a CONTRATANTE.\n\nCLÁUSULA 2ª - HONORÁRIOS: Pelos serviços realizados, a CONTRATANTE pagará o montante de R$ {{valor}}.\n\nData: {{data}}.", "DECLARAÇÃO": "DECLARAÇÃO DE PRESTAÇÃO DE SERVIÇOS E PAGAMENTO\n\nDeclaramos para os devidos fins que o Sr(a) ou Empresa {{cliente}} realizou o pagamento total no valor de R$ {{valor}} em favor de {{empresa}}, referente à execução de serviços técnicos concluídos.\n\nFirmado em {{data}}." };
         function alterarTextoBase() { const v = document.getElementById('tipo_doc').value; document.getElementById('texto_doc').value = t[v] || ""; }
