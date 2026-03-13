@@ -16,7 +16,7 @@ if (file_exists("vendor/autoload.php")) {
 $host = "localhost"; $db = "glow_prod"; $user = "root"; $pass = "";
 try {
     $pdo = new PDO("sqlite:glow.db");
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $e) {
     die("Erro ao conectar no banco de dados: " . $e->getMessage());
 }
@@ -197,7 +197,44 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
             </div>
         </div>
         <?php endif; ?>
-        
+
+        <?php if($is_pro): ?>
+        <div class="mb-10 card-custom p-6 rounded-3xl border-indigo-500/20 shadow-xl italic">
+            <h3 class="text-white font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-widest text-indigo-400 italic">📄 Meus Documentos Enviados</h3>
+            <div class="overflow-x-auto text-[10px]">
+                <table class="w-full text-left">
+                    <thead class="text-slate-500 border-b border-slate-800">
+                        <tr><th class="pb-2">Cliente</th><th class="pb-2">Status</th><th class="pb-2 text-right">Ação</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        <?php 
+                        $stmt_doc = $pdo->prepare("SELECT * FROM documentos WHERE usuario_id = ? ORDER BY criado_em DESC");
+                        $stmt_doc->execute([$_SESSION['user']['id']]);
+                        foreach($stmt_doc->fetchAll() as $md): ?>
+                        <tr>
+                            <td class="py-4 text-white font-bold uppercase"><?= $md['cliente'] ?></td>
+                            <td>
+                                <?php if($md['status'] == 'pendente'): ?><span class="text-amber-500 italic font-bold">⏳ Aguardando Cliente</span>
+                                <?php elseif($md['status'] == 'assinado_cliente'): ?><span class="text-indigo-400 font-bold uppercase">✨ Cliente Assinou!</span>
+                                <?php else: ?><span class="text-emerald-500 font-bold uppercase italic text-xs">✅ Concluído</span><?php endif; ?>
+                            </td>
+                            <td class="text-right">
+                                <?php if($md['status'] == 'pendente'): ?>
+                                    <button onclick="prompt('Link:', 'https://<?= $_SERVER['HTTP_HOST'] ?>/assinar.php?id=<?= $md['token'] ?>')" class="text-indigo-400 font-bold uppercase border border-indigo-500/20 px-2 py-1 rounded">Link 🔗</button>
+                                <?php elseif($md['status'] == 'assinado_cliente'): ?>
+                                    <button onclick="abrirAssinaturaEmpresa(<?= $md['id'] ?>)" class="bg-indigo-600 text-white px-3 py-1 rounded-lg font-black uppercase text-[9px] shadow-lg">ASSINAR ✍️</button>
+                                <?php else: ?>
+                                    <a href="?baixar_doc=<?= $md['id'] ?>" class="bg-emerald-600 text-white px-3 py-1 rounded-lg font-black uppercase text-[9px]">Baixar 📄</a>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="card-custom p-6 md:p-10 rounded-3xl shadow-2xl border-slate-800">
             <form method="POST" id="mainForm" enctype="multipart/form-data" class="flex flex-col gap-6">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -224,6 +261,10 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
         <div class="card-custom p-8 rounded-2xl w-full max-w-sm"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center text-sm tracking-widest italic text-white">Crie sua Conta VIP 💎</h2><form method="POST"><input type="text" name="nome" placeholder="Nome Completo" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 mb-4"><input type="email" name="email" placeholder="E-mail" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 mb-4"><input type="password" name="senha" placeholder="Senha" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 mb-4"><button type="submit" name="registrar" class="w-full bg-emerald-600 py-4 rounded-xl font-black uppercase text-xs shadow-lg italic">CRIAR CONTA 💎</button><button type="button" onclick="toggleModal('modal-reg', false)" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2 text-center text-xs">Voltar ❌</button></form></div>
     </div>
 
+    <div id="modal-assinatura-empresa" class="fixed inset-0 bg-black/95 hidden z-50 items-center justify-center p-4 italic">
+        <div class="card-custom p-8 rounded-3xl w-full max-lg border-indigo-500 shadow-2xl italic"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center italic">Sua Assinatura (Empresa) ✍️</h2><form method="POST"><input type="hidden" name="doc_id" id="modal_doc_id"><input type="hidden" name="assinatura_data_empresa" id="assinatura_data_empresa"><div class="relative bg-white rounded-2xl overflow-hidden mb-4 shadow-inner" style="height: 220px;"><canvas id="pad-empresa" class="w-full h-full"></canvas></div><div class="flex gap-2"><button type="button" onclick="limparEmpresa()" class="w-1/3 bg-slate-800 text-slate-500 font-bold uppercase text-[10px] py-4 rounded-xl hover:text-red-400 transition">Limpar 🗑️</button><button type="submit" name="empresa_assinar_final" onclick="salvarEmpresa()" class="w-2/3 bg-indigo-600 py-4 rounded-xl font-black text-white uppercase tracking-widest">FINALIZAR E GERAR 🚀</button></div><button type="button" onclick="toggleModal('modal-assinatura-empresa', false)" class="w-full text-slate-600 mt-4 text-[10px] uppercase font-bold text-center italic">Cancelar ❌</button></form></div>
+    </div>
+
     <div id="modal-login" class="fixed inset-0 bg-black/90 hidden z-50 items-center justify-center p-4">
         <div class="card-custom p-8 rounded-2xl w-full max-w-sm"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center text-sm tracking-widest italic text-white uppercase italic">Login 🚀</h2><form method="POST" class="space-y-4"><input type="email" name="email" placeholder="Seu E-mail" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800"><input type="password" name="senha" placeholder="Sua Senha" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800"><button type="submit" name="login" class="w-full bg-indigo-600 py-4 rounded-xl font-black uppercase text-xs shadow-lg italic">Entrar 🚀</button><button type="button" onclick="toggleModal('modal-login', false)" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2 text-center text-xs italic">Fechar ❌</button></form></div>
     </div>
@@ -231,6 +272,11 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
     <script>
         function toggleMobileMenu() { document.getElementById('mobile-menu').classList.toggle('hidden'); }
         function toggleModal(id, show) { const el = document.getElementById(id); if(show) { el.classList.remove('hidden'); el.classList.add('flex'); } else { el.classList.add('hidden'); el.classList.remove('flex'); } }
+        let canvasE, ctxE, drawingE = false;
+        function initCanvasEmpresa() { canvasE = document.getElementById('pad-empresa'); ctxE = canvasE.getContext('2d'); canvasE.width = canvasE.offsetWidth; canvasE.height = canvasE.offsetHeight; const getPos = (e) => { const rect = canvasE.getBoundingClientRect(); const cx = e.touches ? e.touches[0].clientX : e.clientX; const cy = e.touches ? e.touches[0].clientY : e.clientY; return { x: cx - rect.left, y: cy - rect.top }; }; canvasE.addEventListener('mousedown', (e) => { drawingE = true; ctxE.beginPath(); const p = getPos(e); ctxE.moveTo(p.x, p.y); }); canvasE.addEventListener('mousemove', (e) => { if (!drawingE) return; const p = getPos(e); ctxE.lineTo(p.x, p.y); ctxE.stroke(); ctxE.strokeStyle = "#000"; ctxE.lineWidth = 3; }); window.addEventListener('mouseup', () => drawingE = false); canvasE.addEventListener('touchstart', (e) => { e.preventDefault(); drawingE = true; ctxE.beginPath(); const p = getPos(e); ctxE.moveTo(p.x, p.y); }); canvasE.addEventListener('touchmove', (e) => { if (!drawingE) return; e.preventDefault(); const p = getPos(e); ctxE.lineTo(p.x, p.y); ctxE.stroke(); }); canvasE.addEventListener('touchend', () => drawingE = false); }
+        function abrirAssinaturaEmpresa(id) { document.getElementById('modal_doc_id').value = id; toggleModal('modal-assinatura-empresa', true); setTimeout(initCanvasEmpresa, 100); }
+        function limparEmpresa() { if(ctxE) ctxE.clearRect(0,0,canvasE.width,canvasE.height); }
+        function salvarEmpresa() { if(canvasE) document.getElementById('assinatura_data_empresa').value = canvasE.toDataURL(); }
         document.getElementById('val_f').addEventListener('input', function (e) { let v = e.target.value.replace(/\D/g, ""); v = (v / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); e.target.value = v; });
         const t = { "ORÇAMENTO TÉCNICO": "PROPOSTA COMERCIAL DE PRESTAÇÃO DE SERVIÇOS\n\nEMITENTE: {{empresa}}\nCLIENTE: {{cliente}}\nDATA DE EMISSÃO: {{data}}\n\n1. OBJETO TÉCNICO\nO presente orçamento visa a execução de serviços especializados de [Descreva o Serviço].\n\n2. INVESTIMENTO E CONDIÇÕES\nPelos serviços acima descritos, o valor total do investimento será de R$ {{valor}}.\n\n3. VALIDADE\nEsta proposta comercial tem validade de 10 dias corridos.", "RECIBO DE PAGAMENTO": "RECIBO DE QUITAÇÃO INTEGRAL\n\nVALOR: R$ {{valor}}\n\nEu, representante de {{empresa}}, declaro ter recebido de {{cliente}} a importância de R$ {{valor}}, referente ao pagamento total por serviços prestados no período de [Descreva o Período].\n\nDou plena e geral quitação.\n\nDocumento emitido em {{data}}.", "CONTRATO DE SERVIÇO": "INSTRUMENTO PARTICULAR DE CONTRATO DE PRESTAÇÃO DE SERVIÇOS\n\nCONTRATADA: {{empresa}}\nCONTRATANTE: {{cliente}}\n\nCLÁUSULA 1ª - OBJETO: A CONTRATADA compromete-se a executar serviços técnicos para a CONTRATANTE.\n\nCLÁUSULA 2ª - HONORÁRIOS: Pelos serviços realizados, a CONTRATANTE pagará o montante de R$ {{valor}}.\n\nData: {{data}}.", "DECLARAÇÃO": "DECLARAÇÃO DE PRESTAÇÃO DE SERVIÇOS E PAGAMENTO\n\nDeclaramos para os devidos fins que o Sr(a) ou Empresa {{cliente}} realizou o pagamento total no valor de R$ {{valor}} em favor de {{empresa}}, referente à execução de serviços técnicos concluídos.\n\nFirmado em {{data}}." };
         function alterarTextoBase() { const v = document.getElementById('tipo_doc').value; document.getElementById('texto_doc').value = t[v] || ""; }
