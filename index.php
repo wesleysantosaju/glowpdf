@@ -187,17 +187,58 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
         <?php endif; ?>
 
         <?php if (isset($_SESSION["user"]) && !$is_pro && $_SESSION["user"]["status"] === "aguardando"): ?>
-            <div class="mb-10 p-6 md:p-10 card-custom rounded-[2.5rem] border-amber-500/30 text-center max-w-2xl mx-auto shadow-2xl">
-                 <h2 class="text-xl font-bold text-white mb-6 uppercase tracking-tighter italic">Aguardando Ativação VIP 💎</h2>
-                 <?php $pix_final = montarPixDinamico(29.90); ?>
-                 <div class="bg-white p-4 rounded-3xl inline-block mb-6 shadow-xl"><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?= urlencode($pix_final) ?>" class="mx-auto"></div>
-                 <div class="text-left bg-black/40 p-5 rounded-2xl mb-6 text-center shadow-inner">
-                    <p class="text-[10px] text-slate-500 font-bold uppercase mb-2">Pix Copia e Cola (R$ 29,90) 💰:</p>
-                    <textarea readonly class="w-full bg-transparent border-none text-[10px] text-indigo-400 font-mono resize-none h-12 outline-none text-center" onclick="this.select(); document.execCommand('copy'); alert('Copiado! 📋')"><?= $pix_final ?></textarea>
-                 </div>
-                 <a href="https://wa.me/5579991489856?text=Pagamento Glow PDF" target="_blank" class="w-full inline-block bg-emerald-600 text-white text-xs font-black px-8 py-4 rounded-2xl uppercase tracking-widest shadow-lg text-center">ENVIAR COMPROVANTE 📲</a>
-            </div>
-        <?php endif; ?>
+
+<?php 
+$pix_final = montarPixDinamico(29.90);
+
+$mensagem = "*Comprovante de Assinatura*\n\n";
+$mensagem .= "Olá, tudo bem?\n\n";
+$mensagem .= "Segue o comprovante do pagamento da minha assinatura do *Glow PDF VIP*.\n\n";
+$mensagem .= "_E-mail da conta:_\n";
+$mensagem .= $_SESSION['user']['email'] . "\n\n";
+$mensagem .= "Fico no aguardo da liberação do acesso.\n\n";
+$mensagem .= "Obrigado!";
+
+$link_whatsapp = "https://wa.me/5579991489856?text=" . rawurlencode($mensagem);
+?>
+
+<div class="mb-10 p-6 md:p-10 card-custom rounded-[2.5rem] border-amber-500/30 text-center max-w-2xl mx-auto shadow-2xl">
+
+<h2 class="text-xl font-bold text-white mb-6 uppercase tracking-tighter italic">
+Aguardando Ativação VIP
+</h2>
+
+<div class="bg-white p-4 rounded-3xl inline-block mb-6 shadow-xl">
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?= urlencode($pix_final) ?>" class="mx-auto">
+</div>
+
+<div class="text-left bg-black/40 p-5 rounded-2xl mb-6 text-center shadow-inner">
+
+<p class="text-[10px] text-slate-500 font-bold uppercase mb-2">
+Pix Copia e Cola (R$ 29,90)
+</p>
+
+<textarea readonly
+class="w-full bg-transparent border-none text-[10px] text-indigo-400 font-mono resize-none h-12 outline-none text-center"
+onclick="this.select(); navigator.clipboard.writeText(this.value); alert('Copiado!')">
+
+<?= $pix_final ?>
+
+</textarea>
+
+</div>
+
+<a href="<?= $link_whatsapp ?>"
+target="_blank"
+class="w-full inline-block bg-emerald-600 text-white text-xs font-black px-8 py-4 rounded-2xl uppercase tracking-widest shadow-lg text-center">
+
+ENVIAR COMPROVANTE 📲
+
+</a>
+
+</div>
+
+<?php endif; ?>
 
         <?php if($is_pro): ?>
         <div class="mb-10 card-custom p-6 rounded-3xl border-indigo-500/20 shadow-xl">
