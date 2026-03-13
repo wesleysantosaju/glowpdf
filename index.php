@@ -12,12 +12,14 @@ if (file_exists("vendor/autoload.php")) {
     require_once "vendor/autoload.php";
 }
 
-// 1. CONEXÃO COM BANCO
+// 1. CONEXÃO COM BANCO (DEFINIDA COMO GLOBAL)
 $host = "localhost"; $db = "glow_prod"; $user = "root"; $pass = "";
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (Exception $e) { $error_db = "Erro de conexão."; }
+} catch (Exception $e) { 
+    die("Erro de conexão: " . $e->getMessage()); 
+}
 
 // --- FUNÇÃO GERAÇÃO DE PIX ---
 function montarPixDinamico($valor) {
@@ -46,7 +48,7 @@ if (isset($_SESSION["user"])) {
     if ($check && $check["status"] === "ativo" && $check["expira_em"] >= $hoje) { $is_pro = true; }
 }
 
-// LÓGICA DE GERAR LINK
+// LÓGICA DE GERAR LINK (SALVANDO LOGO COMPRIMIDA NO BANCO)
 if (isset($_POST["gerar_link"])) {
     if (!$is_pro) { echo "<script>alert('Apenas VIPs podem enviar links!');</script>"; }
     else {
@@ -62,8 +64,8 @@ if (isset($_POST["gerar_link"])) {
             $ext = pathinfo($_FILES["logo_file"]["name"], PATHINFO_EXTENSION);
             $source = ($ext == 'png') ? @imagecreatefrompng($img_path) : @imagecreatefromjpeg($img_path);
             if ($source) {
-                $new_width = 300; list($width, $height) = getimagesize($img_path);
-                $new_height = ($height / $width) * $new_width;
+                list($width, $height) = getimagesize($img_path);
+                $new_width = 300; $new_height = ($height / $width) * $new_width;
                 $tmp = imagecreatetruecolor($new_width, $new_height);
                 if($ext == 'png'){ imagealphablending($tmp, false); imagesavealpha($tmp, true); }
                 imagecopyresampled($tmp, $source, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
@@ -88,7 +90,7 @@ if (isset($_POST["empresa_assinar_final"])) {
     header("Location: index.php?sucesso=1"); exit();
 }
 
-// LÓGICA DO GERADOR PDF
+// 3. LÓGICA DO GERADOR PDF FINAL
 if (isset($_POST["gerar_pdf"]) || isset($_GET["baixar_doc"])) {
     if (ob_get_length()) { ob_end_clean(); }
     $logo_final = "";
@@ -195,7 +197,7 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
                     <p class="text-[10px] text-slate-500 font-bold uppercase mb-2 italic">Pix Copia e Cola (R$ 29,90) 💰:</p>
                     <textarea readonly class="w-full bg-transparent border-none text-[10px] text-indigo-400 font-mono resize-none h-12 outline-none text-center italic" onclick="this.select(); document.execCommand('copy'); alert('Copiado! 📋')"><?= $pix_final ?></textarea>
                  </div>
-                 <a href="https://wa.me/5579991489856" target="_blank" class="w-full inline-block bg-emerald-600 text-white text-xs font-black px-8 py-4 rounded-2xl uppercase tracking-widest shadow-lg text-center italic italic italic">ENVIAR COMPROVANTE 📲</a>
+                 <a href="https://wa.me/5579991489856?text=Pagamento Glow PDF" target="_blank" class="w-full inline-block bg-emerald-600 text-white text-xs font-black px-8 py-4 rounded-2xl uppercase tracking-widest shadow-lg text-center italic italic italic">ENVIAR COMPROVANTE 📲</a>
             </div>
         <?php endif; ?>
 
@@ -245,15 +247,15 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
     </main>
 
     <div id="modal-assinatura-empresa" class="fixed inset-0 bg-black/95 hidden z-50 items-center justify-center p-4 italic">
-        <div class="card-custom p-8 rounded-3xl w-full max-lg border-indigo-500 shadow-2xl italic italic"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center italic italic italic">Sua Assinatura (Empresa) ✍️</h2><form method="POST" class="italic"><input type="hidden" name="doc_id" id="modal_doc_id"><input type="hidden" name="assinatura_data_empresa" id="assinatura_data_empresa"><div class="relative bg-white rounded-2xl overflow-hidden mb-4 shadow-inner italic italic" style="height: 220px;"><canvas id="pad-empresa" class="w-full h-full italic italic"></canvas></div><div class="flex gap-2 italic italic italic"><button type="button" onclick="limparEmpresa()" class="w-1/3 bg-slate-800 text-slate-500 font-bold uppercase text-[10px] py-4 rounded-xl hover:text-red-400 transition italic italic italic">Limpar 🗑️</button><button type="submit" name="empresa_assinar_final" onclick="salvarEmpresa()" class="w-2/3 bg-indigo-600 py-4 rounded-xl font-black text-white uppercase tracking-widest shadow-lg italic italic italic">FINALIZAR E GERAR 🚀</button></div><button type="button" onclick="toggleModal('modal-assinatura-empresa', false)" class="w-full text-slate-600 mt-4 text-[10px] uppercase font-bold text-center italic italic italic hover:text-white transition italic">Cancelar ❌</button></form></div>
+        <div class="card-custom p-8 rounded-3xl w-full max-lg border-indigo-500 shadow-2xl italic italic"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center italic italic italic italic">Sua Assinatura (Empresa) ✍️</h2><form method="POST" class="italic"><input type="hidden" name="doc_id" id="modal_doc_id"><input type="hidden" name="assinatura_data_empresa" id="assinatura_data_empresa"><div class="relative bg-white rounded-2xl overflow-hidden mb-4 shadow-inner italic italic" style="height: 220px;"><canvas id="pad-empresa" class="w-full h-full italic italic"></canvas></div><div class="flex gap-2 italic italic italic"><button type="button" onclick="limparEmpresa()" class="w-1/3 bg-slate-800 text-slate-500 font-bold uppercase text-[10px] py-4 rounded-xl hover:text-red-400 transition italic italic italic italic">Limpar 🗑️</button><button type="submit" name="empresa_assinar_final" onclick="salvarEmpresa()" class="w-2/3 bg-indigo-600 py-4 rounded-xl font-black text-white uppercase tracking-widest shadow-lg italic italic italic">FINALIZAR E GERAR 🚀</button></div><button type="button" onclick="toggleModal('modal-assinatura-empresa', false)" class="w-full text-slate-600 mt-4 text-[10px] uppercase font-bold text-center italic italic italic italic hover:text-white transition italic">Cancelar ❌</button></form></div>
     </div>
 
     <div id="modal-login" class="fixed inset-0 bg-black/90 hidden z-50 items-center justify-center p-4 italic italic">
-        <div class="card-custom p-8 rounded-2xl w-full max-w-sm italic italic italic"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center text-sm tracking-widest italic italic italic uppercase italic">Acesse sua Conta 🚀</h2><form method="POST" class="space-y-4 italic italic"><input type="email" name="email" placeholder="Seu E-mail" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic italic"><input type="password" name="senha" placeholder="Sua Senha" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic italic"><button type="submit" name="login" class="w-full bg-indigo-600 py-4 rounded-xl font-black uppercase text-xs tracking-widest italic italic italic">Entrar 🚀</button><button type="button" onclick="toggleModal('modal-login', false)" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2 text-center text-xs italic italic italic">Fechar ❌</button></form></div>
+        <div class="card-custom p-8 rounded-2xl w-full max-w-sm italic italic italic"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center text-sm tracking-widest italic italic italic italic uppercase italic">Acesse sua Conta 🚀</h2><form method="POST" class="space-y-4 italic italic"><input type="email" name="email" placeholder="Seu E-mail" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic italic"><input type="password" name="senha" placeholder="Sua Senha" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic italic"><button type="submit" name="login" class="w-full bg-indigo-600 py-4 rounded-xl font-black uppercase text-xs tracking-widest italic italic italic italic">Entrar 🚀</button><button type="button" onclick="toggleModal('modal-login', false)" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2 text-center text-xs italic italic italic italic italic">Fechar ❌</button></form></div>
     </div>
 
-    <div id="modal-reg" class="fixed inset-0 bg-black/90 hidden z-50 items-center justify-center p-4 italic italic">
-        <div class="card-custom p-8 rounded-2xl w-full max-w-sm italic italic italic"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center text-sm tracking-widest italic italic italic uppercase italic text-white italic">Crie sua Conta VIP 💎</h2><form method="POST" class="space-y-4 italic italic"><input type="text" name="nome" placeholder="Nome Completo" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic italic"><input type="email" name="email" placeholder="E-mail" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic italic"><input type="password" name="senha" placeholder="Crie uma Senha" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic italic"><button type="submit" name="registrar" class="w-full bg-emerald-600 py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-emerald-900/20 italic">CRIAR CONTA 💎</button><button type="button" onclick="toggleModal('modal-reg', false)" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2 text-center text-xs italic">Voltar ❌</button></form></div>
+    <div id="modal-reg" class="fixed inset-0 bg-black/90 hidden z-50 items-center justify-center p-4 italic">
+        <div class="card-custom p-8 rounded-2xl w-full max-w-sm italic"><h2 class="text-xl font-bold text-white mb-6 uppercase text-center text-sm tracking-widest italic uppercase text-white italic">Crie sua Conta VIP 💎</h2><form method="POST" class="space-y-4 italic"><input type="text" name="nome" placeholder="Nome Completo" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic"><input type="email" name="email" placeholder="E-mail" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic"><input type="password" name="senha" placeholder="Crie uma Senha" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 italic"><button type="submit" name="registrar" class="w-full bg-emerald-600 py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-emerald-900/20 italic">CRIAR CONTA 💎</button><button type="button" onclick="toggleModal('modal-reg', false)" class="w-full text-slate-500 text-[10px] font-bold uppercase mt-2 text-center text-xs italic">Voltar ❌</button></form></div>
     </div>
 
     <script>
