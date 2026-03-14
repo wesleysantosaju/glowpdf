@@ -1,6 +1,6 @@
 <?php
 /**
- * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (FIX REENVIO DE FORMULÁRIO + MODAL LINK)
+ * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (FIX POPUPS PERSONALIZADOS)
  */
 session_start();
 ob_start();
@@ -20,6 +20,9 @@ try {
 } catch (Exception $e) {
     die("Erro ao conectar no banco de dados: " . $e->getMessage());
 }
+
+// Variável para mensagens de aviso personalizadas
+$aviso_modal = "";
 
 // --- FUNÇÃO GERAÇÃO DE PIX ---
 function montarPixDinamico($valor) {
@@ -50,7 +53,7 @@ if (isset($_SESSION["user"]) && isset($pdo)) {
 
 // LÓGICA DE GERAR LINK (COM FIX DE ATUALIZAÇÃO DE PÁGINA)
 if (isset($_POST["gerar_link"])) {
-    if (!$is_pro) { echo "<script>alert('Apenas VIPs podem enviar links!');</script>"; }
+    if (!$is_pro) { $aviso_modal = "Apenas membros VIP podem enviar links de assinatura! 💎"; }
     else {
         $token = bin2hex(random_bytes(16));
         $empresa = htmlspecialchars($_POST['empresa']);
@@ -78,15 +81,13 @@ if (isset($_POST["gerar_link"])) {
             $stmt = $pdo->prepare("INSERT INTO documentos (token, usuario_id, tipo, empresa, cliente, valor, descricao, logo_empresa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$token, $_SESSION['user']['id'], $_POST['tipo_documento'], $empresa, $cliente, $valor, $desc, $logo_b64]);
             
-            // Salva na sessão e redireciona para evitar duplicidade ao atualizar
             $_SESSION['link_recem_gerado'] = "https://" . $_SERVER['HTTP_HOST'] . "/assinar.php?id=" . $token;
             header("Location: index.php");
             exit();
-        } catch (Exception $e) { echo "<script>alert('Erro ao salvar no banco.');</script>"; }
+        } catch (Exception $e) { $aviso_modal = "Erro ao salvar no banco de dados."; }
     }
 }
 
-// CAPTURA O LINK DA SESSÃO E LIMPA EM SEGUIDA
 $link_gerado = "";
 if (isset($_SESSION['link_recem_gerado'])) {
     $link_gerado = $_SESSION['link_recem_gerado'];
@@ -130,8 +131,8 @@ if (isset($_POST["gerar_pdf"]) || isset($_GET["baixar_doc"])) {
     header("Content-Type: application/pdf"); header("Content-Disposition: attachment; filename=\"documento.pdf\""); echo $dompdf->output(); exit();
 }
 
-if (isset($_POST["registrar"])) { $hash = password_hash($_POST["senha"], PASSWORD_DEFAULT); $stmt = $pdo->prepare("INSERT INTO usuarios (nome, email, senha, status) VALUES (?, ?, ?, 'aguardando')"); $stmt->execute([$_POST["nome"], $_POST["email"], $hash]); echo "<script>alert('Cadastro realizado!');</script>"; }
-if (isset($_POST["login"])) { $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = ?"); $stmt->execute([$_POST["email"]]); $u = $stmt->fetch(); if ($u && password_verify($_POST["senha"], $u["senha"])) { $_SESSION["user"] = $u; header("Location: index.php"); exit(); } else { echo "<script>alert('Dados inválidos.');</script>"; } }
+if (isset($_POST["registrar"])) { $hash = password_hash($_POST["senha"], PASSWORD_DEFAULT); $stmt = $pdo->prepare("INSERT INTO usuarios (nome, email, senha, status) VALUES (?, ?, ?, 'aguardando')"); $stmt->execute([$_POST["nome"], $_POST["email"], $hash]); $aviso_modal = "Cadastro realizado com sucesso! 🚀"; }
+if (isset($_POST["login"])) { $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = ?"); $stmt->execute([$_POST["email"]]); $u = $stmt->fetch(); if ($u && password_verify($_POST["senha"], $u["senha"])) { $_SESSION["user"] = $u; header("Location: index.php"); exit(); } else { $aviso_modal = "E-mail ou senha incorretos. Verifique seus dados."; } }
 if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); exit(); }
 ?>
 
@@ -223,7 +224,7 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
                  <div class="bg-white p-4 rounded-3xl inline-block mb-6 shadow-xl"><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?= urlencode($pix_final) ?>" class="mx-auto"></div>
                  <div class="text-left bg-black/40 p-5 rounded-2xl mb-6 text-center shadow-inner">
                     <p class="text-[10px] text-slate-500 font-bold uppercase mb-2">Pix Copia e Cola (R$ 29,90) 💰</p>
-                    <textarea readonly class="w-full bg-transparent border-none text-[10px] text-indigo-400 font-mono resize-none h-12 outline-none text-center" onclick="this.select(); navigator.clipboard.writeText(this.value); alert('Copiado! 📋')"><?= $pix_final ?></textarea>
+                    <textarea readonly id="pixText" class="w-full bg-transparent border-none text-[10px] text-indigo-400 font-mono resize-none h-12 outline-none text-center" onclick="copiarPix()"><?= $pix_final ?></textarea>
                  </div>
                  <a href="https://wa.me/5579991489856?text=<?= $msg ?>" target="_blank" class="w-full inline-block bg-emerald-600 text-white text-xs font-black px-8 py-4 rounded-2xl uppercase tracking-widest shadow-lg text-center">ENVIAR COMPROVANTE 📲</a>
             </div>
@@ -284,12 +285,23 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
                     <?php if ($is_pro): ?>
                         <button type="submit" name="gerar_link" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-xl transition text-sm italic">🔗 GERAR LINK PARA CLIENTE</button>
                     <?php else: ?>
-                        <button type="button" onclick="alert('Esta função é exclusiva para membros VIP! 💎')" class="bg-indigo-600/30 text-indigo-400 cursor-not-allowed font-black py-5 rounded-2xl uppercase tracking-widest text-sm italic opacity-60">🔗 GERAR LINK (APENAS VIP 💎)</button>
+                        <button type="button" onclick="mostrarAviso('Esta função é exclusiva para membros VIP! 💎')" class="bg-indigo-600/30 text-indigo-400 cursor-not-allowed font-black py-5 rounded-2xl uppercase tracking-widest text-sm italic opacity-60">🔗 GERAR LINK (APENAS VIP 💎)</button>
                     <?php endif; ?>
                 </div>
             </form>
         </div>
     </main>
+
+    <div id="modal-aviso" class="fixed inset-0 bg-black/90 hidden z-[60] items-center justify-center p-4">
+        <div class="card-custom p-8 rounded-2xl w-full max-w-sm text-center border-indigo-500/50 shadow-2xl">
+            <div class="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h2 class="text-white font-bold mb-4 uppercase italic tracking-wider" id="aviso-titulo">Aviso Glow PDF</h2>
+            <p class="text-slate-400 text-sm mb-6" id="aviso-mensagem"></p>
+            <button onclick="toggleModal('modal-aviso', false)" class="w-full bg-indigo-600 py-3 rounded-xl font-bold text-white uppercase text-xs tracking-widest">Entendido 🚀</button>
+        </div>
+    </div>
 
     <div id="modal-link-copiar" class="fixed inset-0 bg-black/90 hidden z-50 items-center justify-center p-4">
         <div class="card-custom p-8 rounded-2xl w-full max-w-sm text-center">
@@ -330,8 +342,17 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
 
     <script>
         function toggleMobileMenu() { document.getElementById('mobile-menu').classList.toggle('hidden'); }
-        function toggleModal(id, show) { const el = document.getElementById(id); if(show) { el.classList.remove('hidden'); el.classList.add('flex'); } else { el.classList.add('hidden'); el.classList.remove('flex'); } }
+        function toggleModal(id, show) { 
+            const el = document.getElementById(id); 
+            if(show) { el.classList.remove('hidden'); el.classList.add('flex'); } 
+            else { el.classList.add('hidden'); el.classList.remove('flex'); } 
+        }
         
+        function mostrarAviso(msg) {
+            document.getElementById('aviso-mensagem').innerText = msg;
+            toggleModal('modal-aviso', true);
+        }
+
         function abrirModalLink(link) {
             document.getElementById('input-link').value = link;
             toggleModal('modal-link-copiar', true);
@@ -341,11 +362,21 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
             const input = document.getElementById('input-link');
             input.select();
             navigator.clipboard.writeText(input.value);
-            alert('Link copiado para a área de transferência! 📋');
+            mostrarAviso('Link copiado para a área de transferência! 📋');
+        }
+
+        function copiarPix() {
+            const text = document.getElementById('pixText').value;
+            navigator.clipboard.writeText(text);
+            mostrarAviso('Código Pix copiado com sucesso! 💰');
         }
 
         <?php if (!empty($link_gerado)): ?>
             abrirModalLink('<?= $link_gerado ?>');
+        <?php endif; ?>
+
+        <?php if (!empty($aviso_modal)): ?>
+            mostrarAviso('<?= $aviso_modal ?>');
         <?php endif; ?>
 
         let canvasE, ctxE, drawingE = false;
