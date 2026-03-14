@@ -1,6 +1,6 @@
 <?php
 /**
- * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (FIX POPUPS PERSONALIZADOS)
+ * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (FIX POPUPS PERSONALIZADOS + LINK ADMIN + ALTERAR SENHA)
  */
 session_start();
 ob_start();
@@ -49,6 +49,25 @@ if (isset($_SESSION["user"]) && isset($pdo)) {
     $stmt->execute([$_SESSION["user"]["id"]]);
     $check = $stmt->fetch();
     if ($check && $check["status"] === "ativo" && $check["expira_em"] >= $hoje) { $is_pro = true; }
+}
+
+// LÓGICA DE ALTERAR SENHA
+if (isset($_POST["btn_alterar_senha"])) {
+    $antiga = $_POST["senha_antiga"];
+    $nova = $_POST["senha_nova"];
+    
+    $stmt = $pdo->prepare("SELECT senha FROM usuarios WHERE id = ?");
+    $stmt->execute([$_SESSION["user"]["id"]]);
+    $user = $stmt->fetch();
+
+    if ($user && password_verify($antiga, $user["senha"])) {
+        $hash_nova = password_hash($nova, PASSWORD_DEFAULT);
+        $stmt_up = $pdo->prepare("UPDATE usuarios SET senha = ? WHERE id = ?");
+        $stmt_up->execute([$hash_nova, $_SESSION["user"]["id"]]);
+        $aviso_modal = "Senha alterada com sucesso! ✅";
+    } else {
+        $aviso_modal = "A senha antiga está incorreta. ❌";
+    }
 }
 
 // LÓGICA DE GERAR LINK (COM FIX DE ATUALIZAÇÃO DE PÁGINA)
@@ -158,6 +177,10 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
                 <h1 class="text-xl md:text-2xl font-black text-white italic tracking-tighter">GLOW<span class="text-indigo-500">PDF</span></h1>
                 <div class="hidden md:flex items-center gap-4">
                     <?php if (isset($_SESSION["user"])): ?>
+                        <?php if ($_SESSION["user"]["email"] === "admin@glow.com"): ?>
+                            <a href="admin.php" class="text-xs font-bold text-indigo-400 uppercase italic bg-indigo-500/10 px-3 py-2 rounded-lg">Painel Admin ⚙️</a>
+                        <?php endif; ?>
+                        <button onclick="toggleModal('modal-perfil', true)" class="text-xs font-bold text-white uppercase italic bg-slate-800 px-3 py-2 rounded-lg hover:bg-slate-700 transition">Perfil 👤</button>
                         <span class="text-xs font-bold text-indigo-400 uppercase italic text-xs">PLANO: <?= $is_pro ? "VIP PREMIUM 💎" : "GRATUITO" ?></span>
                         <a href="?logout=1" class="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg text-xs font-bold uppercase">SAIR ❌</a>
                     <?php else: ?>
@@ -165,23 +188,7 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
                         <button onclick="toggleModal('modal-reg', true)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-indigo-500/20 uppercase">Assinar Pro 💎</button>
                     <?php endif; ?>
                 </div>
-                <div class="md:hidden flex items-center">
-                    <button onclick="toggleMobileMenu()" class="text-white focus:outline-none">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-                        </svg>
-                    </button>
-                </div>
             </div>
-        </div>
-        <div id="mobile-menu" class="hidden md:hidden bg-slate-900 border-b border-slate-800 p-4 space-y-3 text-center">
-            <?php if (isset($_SESSION["user"])): ?>
-                <div class="text-xs font-bold text-indigo-400 py-2 border-b border-slate-800 uppercase italic">PLANO: <?= $is_pro ? "VIP PREMIUM 💎" : "GRATUITO" ?></div>
-                <a href="?logout=1" class="block bg-red-500/10 text-red-500 p-2 rounded font-bold uppercase text-xs">SAIR DA CONTA ❌</a>
-            <?php else: ?>
-                <button onclick="toggleModal('modal-login', true)" class="block w-full text-indigo-400 font-bold p-2 uppercase text-xs">ENTRAR 🚀</button>
-                <button onclick="toggleModal('modal-reg', true)" class="block w-full bg-indigo-600 text-white font-bold p-2 rounded uppercase text-xs">ASSINAR PRO 💎</button>
-            <?php endif; ?>
         </div>
     </nav>
 
@@ -291,6 +298,24 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
             </form>
         </div>
     </main>
+
+    <div id="modal-perfil" class="fixed inset-0 bg-black/90 hidden z-50 items-center justify-center p-4">
+        <div class="card-custom p-8 rounded-2xl w-full max-w-sm text-center">
+            <h2 class="text-xl font-bold text-white mb-6 uppercase italic">Configurações de Perfil 👤</h2>
+            <form method="POST" class="space-y-4">
+                <div class="text-left">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Senha Antiga</label>
+                    <input type="password" name="senha_antiga" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 text-white">
+                </div>
+                <div class="text-left">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Nova Senha</label>
+                    <input type="password" name="senha_nova" required class="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 text-white">
+                </div>
+                <button type="submit" name="btn_alterar_senha" class="w-full bg-indigo-600 py-4 rounded-xl font-black uppercase text-xs shadow-lg tracking-widest">Alterar Minha Senha 🔒</button>
+                <button type="button" onclick="toggleModal('modal-perfil', false)" class="text-slate-500 text-[10px] font-bold uppercase mt-2">Fechar ❌</button>
+            </form>
+        </div>
+    </div>
 
     <div id="modal-aviso" class="fixed inset-0 bg-black/90 hidden z-[60] items-center justify-center p-4">
         <div class="card-custom p-8 rounded-2xl w-full max-w-sm text-center border-indigo-500/50 shadow-2xl">
