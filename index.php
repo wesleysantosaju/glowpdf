@@ -78,6 +78,7 @@ if (isset($_POST["gerar_link"])) {
             $stmt = $pdo->prepare("INSERT INTO documentos (token, usuario_id, tipo, empresa, cliente, valor, descricao, logo_empresa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$token, $_SESSION['user']['id'], $_POST['tipo_documento'], $empresa, $cliente, $valor, $desc, $logo_b64]);
             
+            // Salva na sessão e redireciona para evitar duplicidade ao atualizar
             $_SESSION['link_recem_gerado'] = "https://" . $_SERVER['HTTP_HOST'] . "/assinar.php?id=" . $token;
             header("Location: index.php");
             exit();
@@ -85,6 +86,7 @@ if (isset($_POST["gerar_link"])) {
     }
 }
 
+// CAPTURA O LINK DA SESSÃO E LIMPA EM SEGUIDA
 $link_gerado = "";
 if (isset($_SESSION['link_recem_gerado'])) {
     $link_gerado = $_SESSION['link_recem_gerado'];
@@ -162,7 +164,23 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
                         <button onclick="toggleModal('modal-reg', true)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-indigo-500/20 uppercase">Assinar Pro 💎</button>
                     <?php endif; ?>
                 </div>
+                <div class="md:hidden flex items-center">
+                    <button onclick="toggleMobileMenu()" class="text-white focus:outline-none">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                        </svg>
+                    </button>
+                </div>
             </div>
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden bg-slate-900 border-b border-slate-800 p-4 space-y-3 text-center">
+            <?php if (isset($_SESSION["user"])): ?>
+                <div class="text-xs font-bold text-indigo-400 py-2 border-b border-slate-800 uppercase italic">PLANO: <?= $is_pro ? "VIP PREMIUM 💎" : "GRATUITO" ?></div>
+                <a href="?logout=1" class="block bg-red-500/10 text-red-500 p-2 rounded font-bold uppercase text-xs">SAIR DA CONTA ❌</a>
+            <?php else: ?>
+                <button onclick="toggleModal('modal-login', true)" class="block w-full text-indigo-400 font-bold p-2 uppercase text-xs">ENTRAR 🚀</button>
+                <button onclick="toggleModal('modal-reg', true)" class="block w-full bg-indigo-600 text-white font-bold p-2 rounded uppercase text-xs">ASSINAR PRO 💎</button>
+            <?php endif; ?>
         </div>
     </nav>
 
@@ -311,6 +329,7 @@ if (isset($_GET["logout"])) { session_destroy(); header("Location: index.php"); 
     </div>
 
     <script>
+        function toggleMobileMenu() { document.getElementById('mobile-menu').classList.toggle('hidden'); }
         function toggleModal(id, show) { const el = document.getElementById(id); if(show) { el.classList.remove('hidden'); el.classList.add('flex'); } else { el.classList.add('hidden'); el.classList.remove('flex'); } }
         
         function abrirModalLink(link) {
