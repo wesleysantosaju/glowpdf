@@ -1,6 +1,6 @@
 <?php
 /**
- * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (FIX VIP STATUS + PDF)
+ * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (FIX VISIBILIDADE SALVAR MODELO)
  */
 session_start();
 ob_start();
@@ -31,7 +31,7 @@ try {
     die("Erro ao conectar no banco de dados: " . $e->getMessage());
 }
 
-// --- VERIFICAÇÃO DE STATUS (MOVIDA PARA O TOPO PARA O PDF RECONHECER) ---
+// --- VERIFICAÇÃO DE STATUS ---
 $hoje = date("Y-m-d"); $is_pro = false;
 if (isset($_SESSION["user"]) && isset($pdo)) {
     $stmt = $pdo->prepare("SELECT status, expira_em FROM usuarios WHERE id = ?");
@@ -57,7 +57,6 @@ if (isset($_POST["gerar_pdf"]) || isset($_GET["baixar_doc"])) {
         $descricao = str_replace(["{{cliente}}", "{{valor}}", "{{empresa}}", "{{data}}"], [$cliente, $valor, $empresa, date("d/m/Y")], $_POST["descricao"]);
         $descricao = nl2br(htmlspecialchars($descricao));
         
-        // Logomarca apenas para VIP
         if ($is_pro && isset($_FILES["logo_file"]) && $_FILES["logo_file"]["error"] === 0) {
             $logo_final = 'data:image/' . pathinfo($_FILES["logo_file"]["name"], PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($_FILES["logo_file"]["tmp_name"]));
         }
@@ -68,12 +67,8 @@ if (isset($_POST["gerar_pdf"]) || isset($_GET["baixar_doc"])) {
     $ass_emp = !empty($assinatura_empresa_img) ? '<img src="' . $assinatura_empresa_img . '" style="width: 180px; height: 60px; border-bottom: 1px solid #000;">' : "_______________________";
     
     $options = new Options(); $options->set("isRemoteEnabled", true); $dompdf = new Dompdf($options);
-    
-    // Marca d'água removida se for VIP
     $watermark = !$is_pro ? '<div style="position:fixed; top:35%; left:0; width:100%; text-align:center; transform:rotate(-30deg); font-size:60px; color:rgba(200,0,0,0.06); font-weight:900; z-index:-1;">GLOW PDF FREE - SEM VALIDADE LEGAL</div>' : "";
-    
     $html = "<html><head><meta charset='UTF-8'><style>body { font-family: sans-serif; padding: 30px; color: #333; line-height: 1.5; font-size: 12px; } .header { border-bottom: 3px solid #6366f1; padding-bottom: 10px; margin-bottom: 20px; } .valor-destaque { background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 15px 0; font-size: 16px; font-weight: bold; color: #6366f1; text-align: right; } .assinaturas { margin-top: 40px; width: 100%; } .col { width: 48%; text-align: center; font-size: 11px; }</style></head><body>$watermark<table width='100%' class='header'><tr><td>$logo_html<h2 style='margin:0'>$empresa</h2></td><td align='right'><h1 style='margin:0; font-size:20px;'>$tipo</h1><p style='margin:0'>".date("d/m/Y")."</p></td></tr></table><p><strong>Para:</strong> $cliente</p><div class='valor-destaque'>VALOR TOTAL: R$ $valor</div><div style='min-height:400px;'>$descricao</div><table class='assinaturas'><tr><td class='col'>$ass_cli<br><strong>$cliente</strong><br>Contratante</td><td class='col' style='width:4%;'></td><td class='col'>$ass_emp<br><strong>$empresa</strong><br>Contratada</td></tr></table></body></html>";
-    
     $dompdf->loadHtml($html); $dompdf->setPaper("A4", "portrait"); $dompdf->render(); 
     header("Content-Type: application/pdf"); header("Content-Disposition: attachment; filename=\"documento.pdf\""); echo $dompdf->output(); exit();
 }
@@ -85,7 +80,7 @@ if (isset($_GET["logout"])) {
     exit();
 }
 
-// LÓGICA DA EMPRESA ASSINAR (RECUPERADA)
+// LÓGICA DA EMPRESA ASSINAR
 if (isset($_POST["empresa_assinar_final"])) {
     $stmt = $pdo->prepare("UPDATE documentos SET assinatura_empresa = ?, status = 'assinado' WHERE id = ? AND usuario_id = ?");
     $stmt->execute([$_POST["assinatura_data_empresa"], $_POST["doc_id"], $_SESSION['user']['id']]);
@@ -114,15 +109,18 @@ function montarPixDinamico($valor) {
 }
 
 // LÓGICA DE FAVORITOS (VIP)
-if (isset($_POST["salvar_modelo_vip"]) && $is_pro) {
-    $tipo = $_POST['tipo_documento'];
-    $texto = $_POST['descricao'];
-    $nome_modelo = htmlspecialchars($_POST['nome_modelo_salvar'] ?? "Modelo sem nome");
-    $uid = $_SESSION['user']['id'];
-    
-    $stmt = $pdo->prepare("INSERT INTO modelos_favoritos (usuario_id, nome_modelo, tipo, conteudo) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$uid, $nome_modelo, $tipo, $texto]);
-    $aviso_modal = "Modelo '$nome_modelo' salvo com sucesso! ⭐";
+if (isset($_POST["salvar_modelo_vip"])) {
+    if(!$is_pro) {
+        $aviso_modal = "Esta função é exclusiva para membros VIP! 💎";
+    } else {
+        $tipo = $_POST['tipo_documento'];
+        $texto = $_POST['descricao'];
+        $nome_modelo = htmlspecialchars($_POST['nome_modelo_salvar'] ?? "Modelo sem nome");
+        $uid = $_SESSION['user']['id'];
+        $stmt = $pdo->prepare("INSERT INTO modelos_favoritos (usuario_id, nome_modelo, tipo, conteudo) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$uid, $nome_modelo, $tipo, $texto]);
+        $aviso_modal = "Modelo '$nome_modelo' salvo com sucesso! ⭐";
+    }
 }
 
 // EXCLUIR MODELO
@@ -146,21 +144,16 @@ if (isset($_POST["btn_alterar_senha"])) {
 }
 
 // LÓGICA DE GERAR LINK
-// LÓGICA DE GERAR LINK
 if (isset($_POST["gerar_link"])) {
     if (!$is_pro) { $aviso_modal = "Apenas membros VIP podem enviar links de assinatura! 💎"; }
     else {
         $token = bin2hex(random_bytes(16));
         $empresa = htmlspecialchars($_POST['empresa']); $cliente = htmlspecialchars($_POST['cliente']); $valor = htmlspecialchars($_POST['valor']);
         $desc = str_replace(["{{cliente}}", "{{valor}}", "{{empresa}}", "{{data}}"], [$cliente, $valor, $empresa, date("d/m/Y")], $_POST['descricao']);
-        
-        // --- AJUSTE AQUI: CAPTURA A LOGO PARA O LINK ---
         $logo_b64 = "";
         if (isset($_FILES["logo_file"]) && $_FILES["logo_file"]["error"] === 0) {
             $logo_b64 = 'data:image/' . pathinfo($_FILES["logo_file"]["name"], PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($_FILES["logo_file"]["tmp_name"]));
         }
-        // ----------------------------------------------
-
         try {
             $stmt = $pdo->prepare("INSERT INTO documentos (token, usuario_id, tipo, empresa, cliente, valor, descricao, logo_empresa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$token, $_SESSION['user']['id'], $_POST['tipo_documento'], $empresa, $cliente, $valor, $desc, $logo_b64]);
@@ -204,7 +197,6 @@ if($is_pro) {
     <nav class="bg-[#020617]/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <h1 class="text-xl md:text-2xl font-black text-white italic tracking-tighter">GLOW<span class="text-indigo-500">PDF</span></h1>
-            
             <div class="hidden md:flex items-center gap-4 text-xs font-bold uppercase italic">
                 <?php if (isset($_SESSION["user"])): ?>
                     <?php if ($_SESSION["user"]["email"] === "admin@glow.com"): ?>
@@ -219,16 +211,12 @@ if($is_pro) {
                     <button onclick="toggleModal('modal-reg', true)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-indigo-500/20 uppercase">Assinar Pro 💎</button>
                 <?php endif; ?>
             </div>
-
             <div class="md:hidden flex items-center">
                 <button onclick="toggleMobileMenu()" class="text-white focus:outline-none">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-                    </svg>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
                 </button>
             </div>
         </div>
-
         <div id="mobile-menu" class="hidden md:hidden bg-slate-900 border-b border-slate-800 p-4 space-y-3 text-center italic font-bold text-xs uppercase">
             <?php if (isset($_SESSION["user"])): ?>
                 <?php if ($_SESSION["user"]["email"] === "admin@glow.com"): ?>
@@ -264,28 +252,37 @@ if($is_pro) {
 
         <div class="card-custom p-6 md:p-10 rounded-3xl shadow-2xl border-slate-800">
             <form method="POST" id="mainForm" enctype="multipart/form-data" class="flex flex-col gap-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="flex flex-col"><label class="text-[10px] font-bold text-slate-500 uppercase mb-2">Modelo 📄</label><select name="tipo_documento" id="tipo_doc" onchange="alterarTextoBase()" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 outline-none focus:border-indigo-500 text-sm shadow-inner text-white"><option value="ORÇAMENTO TÉCNICO">Orçamento Técnico</option><option value="RECIBO DE PAGAMENTO">Recibo de Pagamento</option><option value="CONTRATO DE SERVIÇO">Contrato de Prestação</option><option value="DECLARAÇÃO">Declaração Profissional</option></select></div>
-                    <div class="flex flex-col"><label class="text-[10px] font-bold text-slate-500 uppercase mb-2">Sua Empresa / CPF 🏢</label><input type="text" name="empresa" id="emp_f" required placeholder="Seu Nome" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 outline-none text-sm focus:border-indigo-500"></div>
-                    <div class="flex flex-col"><label class="text-[10px] font-bold text-slate-500 uppercase mb-2">Valor R$ 💰</label><input type="text" name="valor" id="val_f" required placeholder="0,00" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-indigo-400 font-bold text-sm focus:border-indigo-500"></div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 italic uppercase font-bold text-[10px]">
+                    <div class="flex flex-col"><label>Modelo 📄</label><select name="tipo_documento" id="tipo_doc" onchange="alterarTextoBase()" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-white"><option value="ORÇAMENTO TÉCNICO">Orçamento Técnico</option><option value="RECIBO DE PAGAMENTO">Recibo de Pagamento</option><option value="CONTRATO DE SERVIÇO">Contrato de Prestação</option><option value="DECLARAÇÃO">Declaração Profissional</option></select></div>
+                    <div class="flex flex-col"><label>Sua Empresa / CPF 🏢</label><input type="text" name="empresa" id="emp_f" required class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800"></div>
+                    <div class="flex flex-col"><label>Valor R$ 💰</label><input type="text" name="valor" id="val_f" required class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-indigo-400"></div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                    <div class="md:col-span-2 flex flex-col"><label class="text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Cliente 👤</label><input type="text" name="cliente" id="cli_f" required placeholder="Destinatário" class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-sm focus:border-indigo-500"></div>
-                    <div class="flex flex-col"><label class="text-[10px] font-bold text-indigo-400 uppercase mb-2 font-black">Logomarca (VIP 💎)</label><?php if ($is_pro): ?><input type="file" name="logo_file" class="w-full p-3 text-[10px] bg-slate-950 rounded-2xl border border-dashed border-indigo-500/50 text-indigo-400 font-bold uppercase shadow-sm"><?php else: ?><div class="w-full p-4 bg-slate-800/20 rounded-2xl text-slate-500 italic text-center border border-slate-800 text-[10px]">Liberado apenas no VIP 💎</div><?php endif; ?></div>
+                    <div class="md:col-span-2 flex flex-col italic uppercase font-bold text-[10px]"><label>Nome do Cliente 👤</label><input type="text" name="cliente" id="cli_f" required class="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800"></div>
+                    <div class="flex flex-col italic uppercase font-bold text-[10px]"><label class="text-indigo-400">Logomarca (VIP 💎)</label><?php if ($is_pro): ?><input type="file" name="logo_file" class="w-full p-3 text-[10px] bg-slate-950 rounded-2xl border border-dashed border-indigo-500/50 text-indigo-400 font-bold uppercase shadow-sm"><?php else: ?><div class="w-full p-4 bg-slate-800/20 rounded-2xl text-slate-500 italic text-center border border-slate-800 text-[10px]">Liberado apenas no VIP 💎</div><?php endif; ?></div>
                 </div>
                 <div class="flex flex-col">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 text-xs tracking-widest italic flex justify-between items-center uppercase">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase mb-2 text-xs tracking-widest italic flex flex-wrap justify-between items-center gap-2">
                         Corpo do Texto 🖋️ 
-                        <div class="flex gap-2">
-                            <input type="text" name="nome_modelo_salvar" placeholder="Nome do Modelo" class="bg-slate-950 border border-slate-800 text-[9px] px-3 py-1 rounded-xl outline-none focus:border-indigo-500 text-white">
-                            <button type="submit" name="salvar_modelo_vip" class="text-[9px] text-indigo-400 font-black bg-indigo-500/10 px-3 py-1 rounded-lg border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition">⭐ SALVAR</button>
-                        </div>
+                        <div class="flex flex-wrap md:flex-row items-center gap-2 w-full md:w-auto">
+    <input type="text" 
+           name="nome_modelo_salvar" 
+           placeholder="Nome do Modelo" 
+           class="bg-slate-950 border border-slate-800 text-xs px-3 py-2 rounded-xl outline-none focus:border-indigo-500 text-white w-full md:w-64 flex-1">
+    
+    <button type="submit" 
+            name="salvar_modelo_vip" 
+            onclick="<?= !$is_pro ? "mostrarAviso('Esta função é exclusiva para membros VIP! 💎'); return false;" : "" ?>"
+            class="w-full md:w-auto text-[10px] text-indigo-400 font-black bg-indigo-500/10 px-3 py-2 rounded-lg border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition whitespace-nowrap uppercase italic">
+        ⭐ SALVAR
+    </button>
+</div>
                     </label>
                     <textarea name="descricao" id="texto_doc" rows="10" class="w-full p-5 rounded-3xl bg-slate-950 border border-slate-800 outline-none text-sm leading-relaxed focus:border-indigo-500 shadow-inner"></textarea>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button type="submit" name="gerar_pdf" class="bg-slate-800 hover:bg-slate-700 text-white font-black py-5 rounded-2xl uppercase tracking-widest transition shadow-xl text-sm md:text-base italic">🚀 GERAR PDF MANUAL</button>
-                    <?php if ($is_pro): ?> <button type="submit" name="gerar_link" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-xl transition text-sm italic">🔗 GERAR LINK PARA CLIENTE</button><?php else: ?><button type="button" onclick="mostrarAviso('Esta função é exclusiva para membros VIP! 💎')" class="bg-indigo-600/30 text-indigo-400 cursor-not-allowed font-black py-5 rounded-2xl uppercase tracking-widest text-sm opacity-60 italic uppercase">🔗 GERAR LINK (APENAS VIP 💎)</button><?php endif; ?>
+                    <button type="submit" name="gerar_link" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-xl transition text-sm italic">🔗 GERAR LINK PARA CLIENTE</button>
                 </div>
             </form>
         </div>
@@ -394,7 +391,6 @@ if($is_pro) {
             document.getElementById('texto_doc').value = t[v] || ""; 
         }
 
-        // --- LÓGICA DO CANVAS DE ASSINATURA ---
         let canvasE, ctxE, drawingE = false;
         function initCanvasEmpresa() {
             canvasE = document.getElementById('pad-empresa');
