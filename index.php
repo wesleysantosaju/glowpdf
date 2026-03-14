@@ -1,6 +1,6 @@
 <?php
 /**
- * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (FIX BOTÃO BAIXAR)
+ * GLOW PDF SYSTEM - VERSÃO COMERCIAL v13.0 (FIX VIP STATUS + PDF)
  */
 session_start();
 ob_start();
@@ -31,7 +31,16 @@ try {
     die("Erro ao conectar no banco de dados: " . $e->getMessage());
 }
 
-// LÓGICA DO GERADOR PDF (RESTAURADA PARA O BOTÃO BAIXAR FUNCIONAR)
+// --- VERIFICAÇÃO DE STATUS (MOVIDA PARA O TOPO PARA O PDF RECONHECER) ---
+$hoje = date("Y-m-d"); $is_pro = false;
+if (isset($_SESSION["user"]) && isset($pdo)) {
+    $stmt = $pdo->prepare("SELECT status, expira_em FROM usuarios WHERE id = ?");
+    $stmt->execute([$_SESSION["user"]["id"]]);
+    $check = $stmt->fetch();
+    if ($check && $check["status"] === "ativo" && $check["expira_em"] >= $hoje) { $is_pro = true; }
+}
+
+// LÓGICA DO GERADOR PDF
 if (isset($_POST["gerar_pdf"]) || isset($_GET["baixar_doc"])) {
     if (ob_get_length()) { ob_end_clean(); }
     $logo_final = "";
@@ -47,13 +56,24 @@ if (isset($_POST["gerar_pdf"]) || isset($_GET["baixar_doc"])) {
         $tipo = $_POST["tipo_documento"]; $cliente = htmlspecialchars($_POST["cliente"]); $valor = htmlspecialchars($_POST["valor"]); $empresa = htmlspecialchars($_POST["empresa"]);
         $descricao = str_replace(["{{cliente}}", "{{valor}}", "{{empresa}}", "{{data}}"], [$cliente, $valor, $empresa, date("d/m/Y")], $_POST["descricao"]);
         $descricao = nl2br(htmlspecialchars($descricao));
+        
+        // Logomarca apenas para VIP
+        if ($is_pro && isset($_FILES["logo_file"]) && $_FILES["logo_file"]["error"] === 0) {
+            $logo_final = 'data:image/' . pathinfo($_FILES["logo_file"]["name"], PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($_FILES["logo_file"]["tmp_name"]));
+        }
     }
+    
     $logo_html = !empty($logo_final) ? '<img src="' . $logo_final . '" style="max-height: 60px;">' : "";
     $ass_cli = !empty($assinatura_cliente_img) ? '<img src="' . $assinatura_cliente_img . '" style="width: 180px; height: 60px; border-bottom: 1px solid #000;">' : "_______________________";
     $ass_emp = !empty($assinatura_empresa_img) ? '<img src="' . $assinatura_empresa_img . '" style="width: 180px; height: 60px; border-bottom: 1px solid #000;">' : "_______________________";
+    
     $options = new Options(); $options->set("isRemoteEnabled", true); $dompdf = new Dompdf($options);
+    
+    // Marca d'água removida se for VIP
     $watermark = !$is_pro ? '<div style="position:fixed; top:35%; left:0; width:100%; text-align:center; transform:rotate(-30deg); font-size:60px; color:rgba(200,0,0,0.06); font-weight:900; z-index:-1;">GLOW PDF FREE - SEM VALIDADE LEGAL</div>' : "";
+    
     $html = "<html><head><meta charset='UTF-8'><style>body { font-family: sans-serif; padding: 30px; color: #333; line-height: 1.5; font-size: 12px; } .header { border-bottom: 3px solid #6366f1; padding-bottom: 10px; margin-bottom: 20px; } .valor-destaque { background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 15px 0; font-size: 16px; font-weight: bold; color: #6366f1; text-align: right; } .assinaturas { margin-top: 40px; width: 100%; } .col { width: 48%; text-align: center; font-size: 11px; }</style></head><body>$watermark<table width='100%' class='header'><tr><td>$logo_html<h2 style='margin:0'>$empresa</h2></td><td align='right'><h1 style='margin:0; font-size:20px;'>$tipo</h1><p style='margin:0'>".date("d/m/Y")."</p></td></tr></table><p><strong>Para:</strong> $cliente</p><div class='valor-destaque'>VALOR TOTAL: R$ $valor</div><div style='min-height:400px;'>$descricao</div><table class='assinaturas'><tr><td class='col'>$ass_cli<br><strong>$cliente</strong><br>Contratante</td><td class='col' style='width:4%;'></td><td class='col'>$ass_emp<br><strong>$empresa</strong><br>Contratada</td></tr></table></body></html>";
+    
     $dompdf->loadHtml($html); $dompdf->setPaper("A4", "portrait"); $dompdf->render(); 
     header("Content-Type: application/pdf"); header("Content-Disposition: attachment; filename=\"documento.pdf\""); echo $dompdf->output(); exit();
 }
@@ -65,7 +85,7 @@ if (isset($_GET["logout"])) {
     exit();
 }
 
-// LÓGICA DA EMPRESA ASSINAR
+// LÓGICA DA EMPRESA ASSINAR (RECUPERADA)
 if (isset($_POST["empresa_assinar_final"])) {
     $stmt = $pdo->prepare("UPDATE documentos SET assinatura_empresa = ?, status = 'assinado' WHERE id = ? AND usuario_id = ?");
     $stmt->execute([$_POST["assinatura_data_empresa"], $_POST["doc_id"], $_SESSION['user']['id']]);
@@ -93,28 +113,16 @@ function montarPixDinamico($valor) {
     return $payload . strtoupper(str_pad(dechex($resultado & 0xffff), 4, "0", STR_PAD_LEFT));
 }
 
-// --- VERIFICAÇÃO DE STATUS ---
-$hoje = date("Y-m-d"); $is_pro = false;
-if (isset($_SESSION["user"]) && isset($pdo)) {
-    $stmt = $pdo->prepare("SELECT status, expira_em FROM usuarios WHERE id = ?");
-    $stmt->execute([$_SESSION["user"]["id"]]);
-    $check = $stmt->fetch();
-    if ($check && $check["status"] === "ativo" && $check["expira_em"] >= $hoje) { $is_pro = true; }
-}
-
 // LÓGICA DE FAVORITOS (VIP)
-if (isset($_POST["salvar_modelo_vip"])) {
-    if(!$is_pro) {
-        $aviso_modal = "Esta função é exclusiva para membros VIP! 💎";
-    } else {
-        $tipo = $_POST['tipo_documento'];
-        $texto = $_POST['descricao'];
-        $nome_modelo = htmlspecialchars($_POST['nome_modelo_salvar'] ?? "Modelo sem nome");
-        $uid = $_SESSION['user']['id'];
-        $stmt = $pdo->prepare("INSERT INTO modelos_favoritos (usuario_id, nome_modelo, tipo, conteudo) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$uid, $nome_modelo, $tipo, $texto]);
-        $aviso_modal = "Modelo '$nome_modelo' salvo com sucesso! ⭐";
-    }
+if (isset($_POST["salvar_modelo_vip"]) && $is_pro) {
+    $tipo = $_POST['tipo_documento'];
+    $texto = $_POST['descricao'];
+    $nome_modelo = htmlspecialchars($_POST['nome_modelo_salvar'] ?? "Modelo sem nome");
+    $uid = $_SESSION['user']['id'];
+    
+    $stmt = $pdo->prepare("INSERT INTO modelos_favoritos (usuario_id, nome_modelo, tipo, conteudo) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$uid, $nome_modelo, $tipo, $texto]);
+    $aviso_modal = "Modelo '$nome_modelo' salvo com sucesso! ⭐";
 }
 
 // EXCLUIR MODELO
@@ -138,13 +146,21 @@ if (isset($_POST["btn_alterar_senha"])) {
 }
 
 // LÓGICA DE GERAR LINK
+// LÓGICA DE GERAR LINK
 if (isset($_POST["gerar_link"])) {
     if (!$is_pro) { $aviso_modal = "Apenas membros VIP podem enviar links de assinatura! 💎"; }
     else {
         $token = bin2hex(random_bytes(16));
         $empresa = htmlspecialchars($_POST['empresa']); $cliente = htmlspecialchars($_POST['cliente']); $valor = htmlspecialchars($_POST['valor']);
         $desc = str_replace(["{{cliente}}", "{{valor}}", "{{empresa}}", "{{data}}"], [$cliente, $valor, $empresa, date("d/m/Y")], $_POST['descricao']);
+        
+        // --- AJUSTE AQUI: CAPTURA A LOGO PARA O LINK ---
         $logo_b64 = "";
+        if (isset($_FILES["logo_file"]) && $_FILES["logo_file"]["error"] === 0) {
+            $logo_b64 = 'data:image/' . pathinfo($_FILES["logo_file"]["name"], PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($_FILES["logo_file"]["tmp_name"]));
+        }
+        // ----------------------------------------------
+
         try {
             $stmt = $pdo->prepare("INSERT INTO documentos (token, usuario_id, tipo, empresa, cliente, valor, descricao, logo_empresa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$token, $_SESSION['user']['id'], $_POST['tipo_documento'], $empresa, $cliente, $valor, $desc, $logo_b64]);
@@ -160,6 +176,7 @@ if (isset($_SESSION['link_recem_gerado'])) { $link_gerado = $_SESSION['link_rece
 if (isset($_POST["registrar"])) { $hash = password_hash($_POST["senha"], PASSWORD_DEFAULT); $stmt = $pdo->prepare("INSERT INTO usuarios (nome, email, senha, status) VALUES (?, ?, ?, 'aguardando')"); $stmt->execute([$_POST["nome"], $_POST["email"], $hash]); $aviso_modal = "Cadastro realizado com sucesso! 🚀"; }
 if (isset($_POST["login"])) { $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = ?"); $stmt->execute([$_POST["email"]]); $u = $stmt->fetch(); if ($u && password_verify($_POST["senha"], $u["senha"])) { $_SESSION["user"] = $u; header("Location: index.php"); exit(); } else { $aviso_modal = "E-mail ou senha incorretos. Verifique seus dados."; } }
 
+// BUSCA TODOS OS MODELOS DO USUÁRIO
 $modelos_salvos = [];
 if($is_pro) {
     $stmt = $pdo->prepare("SELECT * FROM modelos_favoritos WHERE usuario_id = ? ORDER BY id DESC");
